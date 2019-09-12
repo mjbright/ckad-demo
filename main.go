@@ -358,12 +358,17 @@ func main() {
 	}
 
 	if (livenessSecs > 0) {
+            //  Artificially sleep to simulate container initialization:
             delay := time.Duration(livenessSecs) * 1000 * time.Millisecond
             log.Printf("\n[liveness] Sleeping <%d> secs\n", livenessSecs)
 	    time.Sleep(delay)
         }
 
+	// ---- setup routes:
+
+	// ---- act as static web server on /static/*
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
+
 	mux.HandleFunc("/", index)
 	mux.HandleFunc("/test", statusCodeTest)
 
@@ -377,6 +382,7 @@ func main() {
 	mux.HandleFunc("/map", index)
 
 	if (readinessSecs > 0) {
+            //  Artificially sleep to simulate application initialization:
             delay := time.Duration(readinessSecs) * 1000 * time.Millisecond
             log.Printf("\n[readiness] Sleeping <%d> secs\n", readinessSecs)
 	    time.Sleep(delay)
