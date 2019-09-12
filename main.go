@@ -371,7 +371,7 @@ func main() {
 	//  Extract image_version from image_name_version (affects behaviour):
 	if (strings.Contains(image_name_version, ":")) {
 	    image_version=image_name_version[ 1+strings.Index(image_name_version, ":") : ]
-            log.Printf("\nExtracted image version <%s>\n", image_version)
+            log.Printf("Extracted image version <%s>\n", image_version)
 	}
 
 	if die {
