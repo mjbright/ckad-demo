@@ -16,6 +16,7 @@ function check_build {
     [ -f demo-binary ] && rm -f demo-binary ]
     CGO_ENABLED=0 go build -a -o demo-binary $SRC_GO
     [ ! -x demo-binary ] && die "Failed to build binary"
+    ls -alh demo-binary
 
     echo; echo "---- Testing  binary ----------"
     LISTEN=127.0.0.1:8080
@@ -25,7 +26,7 @@ function check_build {
     [ -z "$PID" ] && die "Failed to get PID"
     ps -fade | grep $PID
 
-    curl -sL $LISTEN/1line || {
+    curl -sL $LISTEN/1 || {
         kill -9 $PID
         die "Failed to contact demo-binary on <$LISTEN>"
     }
