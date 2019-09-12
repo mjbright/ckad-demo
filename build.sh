@@ -39,7 +39,7 @@ function build {
     IMAGE_TAG=$1; shift
     FROM_IMAGE=$1; shift
     EXPOSE_PORT=$1; shift
-    TEMPLATE_CMD=$1; shift
+    TEMPLATE_CMD="$1"; shift
 
     write_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT $TEMPLATE_CMD
 
@@ -62,6 +62,13 @@ function build {
     # Build the runtime stage, using cached compile stage:
     TIME docker build --target runtime-image --cache-from=$STAGE1_IMAGE \
                      --cache-from=$IMAGE_TAG --tag $IMAGE_TAG .
+
+    docker run -d --name BUILD_TEST -p 8181:$EXPOSE_PORT $IMAGE_TAG
+    CONTAINERID=$(docker ps -ql)
+    curl -sL 127.0.0.1:8181/1 ||
+        die "Failed to interrogate container <$CONTAINERID> 'BUILD_TEST' from image <$IMAGE_TAG>"
+    docker stop $CONTAINERID
+    docker rm $CONTAINERID
 
     # Push the new versions:
     TIME docker push $STAGE1_IMAGE
@@ -179,8 +186,8 @@ for REPO_NAME in $REPO_NAMES; do
         IMAGE="${REPO}:alpine${TAG}"
         build_and_push $IMAGE alpine  $PORT  "CMD --listen :$PORT -l 10 -r 10 -i $IMAGE"
 
-        IMAGE="${REPO}:bad${TAG}"
-        build_and_push $IMAGE alpine  $PORT  "CMD --listen :$PORT -l 10 -r 10 -i $IMAGE"
+        ## IMAGE="${REPO}:bad${TAG}"
+        ## build_and_push $IMAGE alpine  $PORT  "CMD --listen :$PORT -l 10 -r 10 -i $IMAGE"
     done
 done
 
