@@ -176,7 +176,7 @@ function TIMER_hhmmss {
 
 # END: TIMER FUNCTIONS ================================================
 
-check_build main.go
+TIME check_build main.go
 
 # Incremental builds:
 
