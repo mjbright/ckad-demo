@@ -276,13 +276,13 @@ func index(w http.ResponseWriter, r *http.Request) {
             p3 := ""
             if networkInfo != "" {
                 p3 = fmt.Sprintf("%s ", networkInfo)
-	        if r.URL.Path != "/1line" {
+	        if (r.URL.Path != "/1line") && (r.URL.Path != "/1") {
                     p3 = p3 + "\n"
                 }
             }
             p4 := fmt.Sprintf("image <%s>\n", image_name_version)
 
-	    if r.URL.Path == "/1line" {
+	    if (r.URL.Path != "/1line") && (r.URL.Path != "/1") {
                 fmt.Fprintf(w, p1 + " " + p2 + " " + p3 + p4)
             } else {
                 fmt.Fprintf(w, "\n")
