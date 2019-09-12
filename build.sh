@@ -40,9 +40,10 @@ function build {
     IMAGE_TAG=$1; shift
     FROM_IMAGE=$1; shift
     EXPOSE_PORT=$1; shift
-    TEMPLATE_CMD="$1"; shift
+    TEMPLATE_CMD="$*"; set --
 
-    write_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT $TEMPLATE_CMD
+    [ "$TEMPLATE_CMD" = "CMD" ] && die "build: Missing command in <$TEMPLATE_CMD>"
+    write_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT "$TEMPLATE_CMD"
 
     case "$FROM_IMAGE" in
         "scratch") STAGE1_IMAGE="mjbright/demo-static-binary";;
@@ -63,6 +64,8 @@ function build {
     # Build the runtime stage, using cached compile stage:
     TIME docker build --target runtime-image --cache-from=$STAGE1_IMAGE \
                      --cache-from=$IMAGE_TAG --tag $IMAGE_TAG .
+    echo "CMD=<$TEMPLATE_CMD>"
+    [ "$TEMPLATE_CMD" = "CMD" ] && die "Missing command in <$TEMPLATE_CMD>"
 
     docker run -d --name BUILD_TEST -p 8181:$EXPOSE_PORT $IMAGE_TAG
     CONTAINERID=$(docker ps -ql)
@@ -80,7 +83,10 @@ function write_dockerfile {
     IMAGE_TAG=$1; shift
     FROM_IMAGE=$1; shift
     EXPOSE_PORT=$1; shift
-    TEMPLATE_CMD=$1; shift
+    TEMPLATE_CMD="$*"; set --
+
+    #echo "EXPOSE_PORT=$EXPOSE_PORT"
+    [ "$TEMPLATE_CMD" = "CMD" ] && die "write_dockerfile: Missing command in <$TEMPLATE_CMD>"
 
     STATIC_STAGE1_BUILD="CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags '-w' -o demo-binary *.go"
     DYNAMIC_STAGE1_BUILD="CGO_ENABLED=0 go build -a -o demo-binary"
@@ -94,8 +100,8 @@ function write_dockerfile {
     sed  < Dockerfile.tmpl > Dockerfile \
         -e "s/__FROM_IMAGE__/$FROM_IMAGE/" \
         -e "s/__EXPOSE_PORT__/$EXPOSE_PORT/" \
-        -e "s/__TEMPLATE_CMD__/$TEMPLATE_CMD/" \
         -e "s/__STAGE1_BUILD__/$STAGE1_BUILD/" \
+        -e "s?__TEMPLATE_CMD__?/$TEMPLATE_CMD?" \
 
     grep __ Dockerfile && die "Uninstantiated variables in Dockerfile"
 }
@@ -104,9 +110,9 @@ function basic_2stage_build {
     IMAGE_TAG=$1; shift
     FROM_IMAGE=$1; shift
     EXPOSE_PORT=$1; shift
-    TEMPLATE_CMD=$1; shift
+    TEMPLATE_CMD="$*"; set --
 
-    write_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT $TEMPLATE_CMD
+    write_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT "$TEMPLATE_CMD"
     docker build -t $IMAGE_TAG .
 }
 
@@ -122,6 +128,8 @@ function build_and_push {
     #build $IMAGE_TAG
     #push $IMAGE_TAG
 
+    #[ "$TEMPLATE_CMD" = "CMD" ] && die "build: Missing command in <$TEMPLATE_CMD>"
+    echo $4
     build $*
     push  $*
 }
@@ -182,13 +190,17 @@ for REPO_NAME in $REPO_NAMES; do
         PORT=80
 
         IMAGE="${REPO}:${TAG}"
-        build_and_push $IMAGE scratch $PORT  "CMD --listen :$PORT -l 10 -r 10 -i $IMAGE"
+	#CMD="/app/demo-binary --listen :$PORT -l 10 -r 10 -i $IMAGE"
+	CMD="['/app/demo-binary','--listen',':$PORT','-l','10','-r','10','-i','$IMAGE']"
+        build_and_push $IMAGE scratch $PORT $CMD
 
         IMAGE="${REPO}:alpine${TAG}"
-        build_and_push $IMAGE alpine  $PORT  "CMD --listen :$PORT -l 10 -r 10 -i $IMAGE"
+	#CMD="/app/demo-binary --listen :$PORT -l 10 -r 10 -i $IMAGE"
+	CMD="['/app/demo-binary','--listen',':$PORT','-l','10','-r','10','-i','$IMAGE']"
+        build_and_push $IMAGE alpine  $PORT $CMD
 
         ## IMAGE="${REPO}:bad${TAG}"
-        ## build_and_push $IMAGE alpine  $PORT  "CMD --listen :$PORT -l 10 -r 10 -i $IMAGE"
+        ## build_and_push $IMAGE alpine  $PORT  "--listen :$PORT -l 10 -r 10 -i $IMAGE"
     done
 done
 
