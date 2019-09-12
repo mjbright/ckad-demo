@@ -351,6 +351,12 @@ func ping(w http.ResponseWriter, r *http.Request) {
 func main() {
 	flag.Parse()
 
+	//  Extract image_version from image_name_version (affects behaviour):
+	if (strings.Contains(image_name_version, ":")) {
+	    image_version=image_name_version[ 1+strings.Index(image_name_version, ":") : ]
+            //log.Printf("\nExtracted image version <%s>\n", image_version)
+	}
+
 	if (livenessSecs > 0) {
             delay := time.Duration(livenessSecs) * 1000 * time.Millisecond
             log.Printf("\n[liveness] Sleeping <%d> secs\n", livenessSecs)
