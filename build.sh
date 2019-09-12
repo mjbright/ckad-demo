@@ -104,6 +104,10 @@ function write_dockerfile {
         -e "s?__TEMPLATE_CMD__?/$TEMPLATE_CMD?" \
 
     grep __ Dockerfile && die "Uninstantiated variables in Dockerfile"
+    mkdir -p tmp
+
+    DFID=$(echo $IMAGE_TAG | sed -e 's/\//_/g')
+    cp -a Dockerfile tmp/Dockerfile.${DFID}
 }
 
 function basic_2stage_build {
