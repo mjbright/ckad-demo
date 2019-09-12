@@ -393,19 +393,19 @@ func main() {
         if (strings.Contains(image_name_version, ":")) {
             image_version=image_name_version[ 1+strings.Index(image_name_version, ":") : ]
             log.Printf("Extracted image version <%s>\n", image_version)
-	}
+        }
 
-	if die {
+        if die {
             log.Fatal("Dying at beginning")
             os.Exit(1)
-	}
-	if (livenessSecs > 0) {
+        }
+        if (livenessSecs > 0) {
             //  Artificially sleep to simulate container initialization:
             delay := time.Duration(livenessSecs) * 1000 * time.Millisecond
             log.Printf("\n[liveness] Sleeping <%d> secs\n", livenessSecs)
-	    time.Sleep(delay)
+            time.Sleep(delay)
         }
-	if liveanddie {
+        if liveanddie {
             log.Fatal("Dying once live")
             os.Exit(2)
 	}
