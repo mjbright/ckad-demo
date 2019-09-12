@@ -86,26 +86,11 @@ func GetOutboundIP() net.IP {
 // Read command-line arguments:
 //
 func init() {
+	/* We would normally parse command-line arguments like this
+	   but we cannot pass arguments to flag.parse()
+	   so we cannot use ENV vars as something to be parsed as cli args:
 	flag.StringVar(&listenAddr, "listen", listenAddr, "listen address")
-
-	flag.BoolVar(&die,         "die", false,   "die before live (false)")
-	flag.IntVar(&dieafter,     "dieafter", -1, "die after (NEVER)")
-
-	flag.BoolVar(&liveanddie,   "liveanddie",false,   "die once live (false)")
-	flag.IntVar(&livenessSecs,  "live",   0,   "liveness delay (0 sec)")
-	flag.IntVar(&livenessSecs,  "l",      0,   "liveness delay (0 sec)")
-
-	flag.BoolVar(&readyanddie,  "readyanddie",false,   "die once ready (false)")
-	flag.IntVar(&readinessSecs, "ready",  0,   "readiness delay (0 sec)")
-	flag.IntVar(&readinessSecs, "r",      0,   "readiness delay (0 sec)")
-
-	flag.StringVar(&image_name_version, "image", image_name_version, "image")
-	flag.StringVar(&image_name_version, "i", image_name_version, "image")
-
-	flag.BoolVar(&verbose,      "verbose",false,   "verbose (false)")
-	flag.BoolVar(&verbose,      "v",      false,   "verbose (false)")
-	flag.BoolVar(&headers,      "headers",false,   "show headers (false)")
-	flag.BoolVar(&headers,      "h",      false,   "show headers (false)")
+	*/
 }
 
 // -----------------------------------
@@ -366,11 +351,47 @@ func ping(w http.ResponseWriter, r *http.Request) {
 //
 //
 func main() {
-	flag.Parse()
+	f := flag.NewFlagSet("flag", flag.ExitOnError)
 
-	//  Extract image_version from image_name_version (affects behaviour):
-	if (strings.Contains(image_name_version, ":")) {
-	    image_version=image_name_version[ 1+strings.Index(image_name_version, ":") : ]
+	f.StringVar(&listenAddr, "listen", listenAddr, "listen address")
+
+	f.BoolVar(&die,         "die", false,   "die before live (false)")
+	f.IntVar(&dieafter,     "dieafter", -1, "die after (NEVER)")
+
+	f.BoolVar(&liveanddie,   "liveanddie",false,   "die once live (false)")
+	f.IntVar(&livenessSecs,  "live",   0,   "liveness delay (0 sec)")
+	f.IntVar(&livenessSecs,  "l",      0,   "liveness delay (0 sec)")
+
+	f.BoolVar(&readyanddie,  "readyanddie",false,   "die once ready (false)")
+	f.IntVar(&readinessSecs, "ready",  0,   "readiness delay (0 sec)")
+	f.IntVar(&readinessSecs, "r",      0,   "readiness delay (0 sec)")
+
+	f.StringVar(&image_name_version, "image", image_name_version, "image")
+	f.StringVar(&image_name_version, "i", image_name_version, "image")
+
+	f.BoolVar(&verbose,      "verbose",false,   "verbose (false)")
+	f.BoolVar(&verbose,      "v",      false,   "verbose (false)")
+	f.BoolVar(&headers,      "headers",false,   "show headers (false)")
+	f.BoolVar(&headers,      "h",      false,   "show headers (false)")
+
+        // visitor := func(a *flag.Flag) { fmt.Println(">", a.Name, "value=", a.Value); }
+        // fmt.Println("Visit()"); f.Visit(visitor) fmt.Println("VisitAll()")
+        // f.VisitAll(visitor); fmt.Println("VisitAll()")
+
+        if os.Getenv("CLI_ARGS") != "" {
+            cli_args := os.Getenv("CLI_ARGS")
+            a_cli_args := strings.Split(cli_args, " ")
+
+            f.Parse(a_cli_args)
+        } else {
+            f.Parse(os.Args[1:])
+        }
+        // fmt.Println("Visit() after Parse()"); f.Visit(visitor);
+        // fmt.Println("VisitAll() after Parse()") f.VisitAll(visitor)
+
+        //  Extract image_version from image_name_version (affects behaviour):
+        if (strings.Contains(image_name_version, ":")) {
+            image_version=image_name_version[ 1+strings.Index(image_name_version, ":") : ]
             log.Printf("Extracted image version <%s>\n", image_version)
 	}
 
