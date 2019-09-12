@@ -35,9 +35,8 @@ const (
 var (
 	// -- defaults: can be overridden by cli ------------
 	// -- defaults: to be overridden by env/cli/cm ------
-	//image_name_version = "mjbright/ckad-demo:1"
-	image_name_version = "UNKNOWN"
-	image_version      = "latest"
+	image_name_version = "mjbright/ckad-demo:1"
+	image_version      = "1"
 
         logo_ascii_art     = "static/img/kubernetes_white.txt"
 
@@ -84,6 +83,8 @@ func init() {
 
 	flag.IntVar(&livenessSecs,  "l",      0,   "liveness delay (0 sec)")
 	flag.IntVar(&readinessSecs, "r",      0,   "readiness delay (0 sec)")
+
+	flag.StringVar(&image_name_version, "i", image_name_version, "image")
 
 	flag.BoolVar(&verbose,      "v",      false,   "verbose (false)")
 	flag.BoolVar(&headers,      "h",      false,   "show headers (false)")
