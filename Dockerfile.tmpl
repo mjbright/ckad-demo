@@ -27,5 +27,5 @@ COPY    --from=build-env /src/demo-binary /app/
 EXPOSE __EXPOSE_PORT__
 ENTRYPOINT ["/app/demo-binary"]
 
-__TEMPLATE_CMD__
+CMD __TEMPLATE_CMD__
 
