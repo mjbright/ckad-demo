@@ -283,8 +283,6 @@ func index(w http.ResponseWriter, r *http.Request) {
             p4 := fmt.Sprintf("image <%s>\n", image_name_version)
 
 	    if (r.URL.Path != "/1line") && (r.URL.Path != "/1") {
-                fmt.Fprintf(w, p1 + " " + p2 + " " + p3 + p4)
-            } else {
                 fmt.Fprintf(w, "\n")
                 fmt.Fprintf(w, p1)
                 fmt.Fprintf(w, "\n")
@@ -293,6 +291,8 @@ func index(w http.ResponseWriter, r *http.Request) {
                 fmt.Fprintf(w, p3)
                 fmt.Fprintf(w, p4)
                 fmt.Fprintf(w, "\n")
+            } else {
+                fmt.Fprintf(w, p1 + " " + p2 + " " + p3 + p4)
             }
 
 	    return
