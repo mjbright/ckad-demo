@@ -1,0 +1,31 @@
+
+
+# -- build stage ---------------------------------------------
+FROM golang:alpine AS build-env
+
+ADD . /src
+
+# Command works:
+
+# VERSION to use with 'FROM alpine' below:
+#RUN cd /src && go build -o demo-binary
+
+# VERSION to use with 'FROM scratch' below:
+RUN cd /src && __STAGE1_BUILD__
+
+# -- final stage ---------------------------------------------
+
+# TODO LATER have base image here as a VARIABLE - scratch or alpine => produce different images
+FROM __FROM_IMAGE__ AS runtime-image
+
+ADD static    /app/static
+ADD templates /app/templates
+
+WORKDIR /app
+COPY    --from=build-env /src/demo-binary /app/
+
+EXPOSE __EXPOSE_PORT__
+ENTRYPOINT ["/app/demo-binary"]
+
+__TEMPLATE_CMD__
+
