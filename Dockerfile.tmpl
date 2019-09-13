@@ -25,8 +25,7 @@ ADD templates /app/templates
 WORKDIR /app
 COPY    --from=build-env /src/demo-binary /app/
 
-RUN ls -al demo-binary
-RUN ls -alh demo-binary
+RUN ls -al  /app/demo-binary; ls -alh /app/demo-binary; /app/demo-binary -v -die; exit 0
 
 EXPOSE __EXPOSE_PORT__
 ENTRYPOINT ["/app/demo-binary"]
