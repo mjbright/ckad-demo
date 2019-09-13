@@ -159,7 +159,7 @@ function TIMER_STOP {
 function TIME {
     CMD=$*
 
-    echo "---- $CMD"
+    echo; echo "---- $CMD"
     TIMER_START
     $CMD
     TIMER_STOP
