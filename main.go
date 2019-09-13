@@ -397,6 +397,11 @@ func main() {
         // fmt.Println("Visit() after Parse()"); f.Visit(visitor);
         // fmt.Println("VisitAll() after Parse()") f.VisitAll(visitor)
 
+        if verbose {
+            log.Printf("%s\n", strings.Join(os.Args, " "))
+        }
+
+	if verbose {
         //  Extract image_version from image_name_version (affects behaviour):
         if (strings.Contains(image_name_version, ":")) {
             image_version=image_name_version[ 1+strings.Index(image_name_version, ":") : ]
@@ -476,7 +481,6 @@ func main() {
         }
         logo_path = logo_base_path +  "txt" 
 
-	if verbose {
             log.Printf("Default ascii art <%s>\n", logo_path)
         }
 	log.Printf("listening on %s\n", listenAddr)
