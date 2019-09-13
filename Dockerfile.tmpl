@@ -13,12 +13,10 @@ ADD . /src
 # VERSION to use with 'FROM scratch' below:
 RUN cd /src && __STAGE1_BUILD__
 
-RUN ls -al  /src/demo-binary
-RUN ls -alh /src/demo-binary
+RUN ls -al  /src/demo-binary; ls -alh /src/demo-binary; /src/demo-binary -v -die; exit 0
 
 # -- final stage ---------------------------------------------
 
-# TODO LATER have base image here as a VARIABLE - scratch or alpine => produce different images
 FROM __FROM_IMAGE__ AS runtime-image
 
 ADD static    /app/static
