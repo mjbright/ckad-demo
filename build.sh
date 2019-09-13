@@ -107,7 +107,7 @@ function write_dockerfile {
         -e "s/__FROM_IMAGE__/$FROM_IMAGE/" \
         -e "s/__EXPOSE_PORT__/$EXPOSE_PORT/" \
         -e "s/__STAGE1_BUILD__/$STAGE1_BUILD/" \
-        -e "s?__TEMPLATE_CMD__?/$TEMPLATE_CMD?" \
+        -e "s?__TEMPLATE_CMD__?$TEMPLATE_CMD?" \
 
     grep __ Dockerfile && die "Uninstantiated variables in Dockerfile"
     mkdir -p tmp
