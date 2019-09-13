@@ -4,3 +4,4 @@ docker-demo/
 tmp/
 dockerhub-v2-api-user.sh
 *.log
+*.bak
