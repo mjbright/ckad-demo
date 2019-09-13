@@ -184,6 +184,28 @@ function TIMER_hhmmss {
 
 TIME check_build main.go
 
+## -- Args: -------------------------------------------------------------
+
+ALL_REPO_NAMES="ckad-demo k8s-demo docker-demo"
+ALL_TAGS=$(seq 6)
+
+REPO_NAMES="ckad-demo"
+TAGS=""
+
+while [ ! -z "$1" ]; do
+    case $1 in
+        [0-9]*)           TAGS+=" $1";;
+        --tag|-t)         shift; TAGS=$1;;
+        --all-tags|-at)   TAGS=$ALL_TAGS;;
+        --all-images|-ai) REPO_NAMES=$ALL_REPO_NAMES;;
+    esac
+    shift
+done
+
+[ -z "$TAGS" ] && TAGS="1"
+
+## -- Main: -------------------------------------------------------------
+
 # Incremental builds:
 
 docker login
