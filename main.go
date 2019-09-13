@@ -412,7 +412,7 @@ func main() {
         if (livenessSecs > 0) {
             //  Artificially sleep to simulate container initialization:
             delay := time.Duration(livenessSecs) * 1000 * time.Millisecond
-            log.Printf("\n[liveness] Sleeping <%d> secs\n", livenessSecs)
+            log.Printf("[liveness] Sleeping <%d> secs\n", livenessSecs)
             time.Sleep(delay)
         }
         if liveanddie {
@@ -440,7 +440,7 @@ func main() {
 	if (readinessSecs > 0) {
             //  Artificially sleep to simulate application initialization:
             delay := time.Duration(readinessSecs) * 1000 * time.Millisecond
-            log.Printf("\n[readiness] Sleeping <%d> secs\n", readinessSecs)
+            log.Printf("[readiness] Sleeping <%d> secs\n", readinessSecs)
 	    time.Sleep(delay)
         }
 	if readyanddie {
