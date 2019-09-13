@@ -2,6 +2,12 @@
 
 # TODO: test docker images before push
 
+# Log output:
+
+exec 2>&1 > >( stdbuf -oL tee ${0}.log )
+
+# -- Functions: --------------------------------------------------------
+
 function die {
     echo "$0: die - $*" >&2
     exit 1
