@@ -212,8 +212,13 @@ docker login
 
 TIMER_START; START0_S=$START_S
 
-REPO_NAMES="ckad-demo k8s-demo docker-demo"
-TAGS=$(seq 6)
+#LIVENESS_DELAY=0
+LIVE=0
+#READINESS_DELAY=0
+READY=0
+
+LIVE=03
+READY=03
 
 for REPO_NAME in $REPO_NAMES; do
     echo; echo "---- Building images <$REPO_NAME> --------"
