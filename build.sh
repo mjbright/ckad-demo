@@ -159,7 +159,8 @@ function TIMER_STOP {
 function TIME {
     CMD=$*
 
-    echo; echo "---- $CMD"
+    CMD_TIME=$(date +%Y-%b-%d_%02Hh%02Mm%02S)
+    echo; echo "---- [$CMD_TIME] $CMD"
     TIMER_START
     $CMD
     TIMER_STOP
