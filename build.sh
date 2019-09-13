@@ -4,7 +4,10 @@
 
 # Log output:
 
-exec 2>&1 > >( stdbuf -oL tee ${0}.log )
+DATE_VERSION=$(date +%Y-%b-%d_%02Hh%02Mm%02S)
+
+mkdir -p logs
+exec 2>&1 > >( stdbuf -oL tee logs/${0}.${DATE_VERSION}.log )
 
 # -- Functions: --------------------------------------------------------
 
