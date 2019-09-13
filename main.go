@@ -39,6 +39,8 @@ var (
 	image_version      = "1"
 	message            = ""
 
+	__DATE_VERSION__ = "2019-Sep-13_18h11m33"
+
         logo_base_path = "static/img/kubernetes_blue"
         logo_path     = "static/img/kubernetes_blue.txt"
 
@@ -351,6 +353,45 @@ func ping(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(resp))
 }
 
+func showVersion(w http.ResponseWriter, r *http.Request) {
+	resp := fmt.Sprintf("version: %s\n", __DATE_VERSION__)
+	w.Write([]byte(resp))
+}
+
+func setLogoPath() string {
+    logo_base_path     = "static/img/kubernetes_"
+
+    if CaseInsensitiveContains(image_name_version, "docker-demo") {
+        logo_base_path     = "static/img/docker_"
+    }
+    if CaseInsensitiveContains(image_name_version, "k8s-demo") {
+        logo_base_path     = "static/img/kubernetes_"
+    }
+    if CaseInsensitiveContains(image_name_version, "ckad-demo") {
+        logo_base_path     = "static/img/kubernetes_"
+    }
+
+    if (image_version == "1") {
+        logo_base_path     +=  "blue."
+    } else if (image_version == "2") {
+        logo_base_path     +=  "red."
+    } else if (image_version == "3") {
+        logo_base_path     +=  "green."
+    } else if (image_version == "4") {
+        logo_base_path     +=  "cyan."
+    } else if (image_version == "5") {
+        logo_base_path     +=  "yellow."
+    } else if (image_version == "6") {
+        logo_base_path     +=  "white."
+    } else {
+        logo_base_path     +=  "blue."
+    }
+
+    logo_path = logo_base_path +  "txt" 
+
+    return logo_path
+}
+
 // -----------------------------------
 // func: main
 //
@@ -398,10 +439,11 @@ func main() {
         // fmt.Println("VisitAll() after Parse()") f.VisitAll(visitor)
 
         if verbose {
+            log.Printf("%s Version: %s\n", os.Args[0], __DATE_VERSION__)
+
             log.Printf("%s\n", strings.Join(os.Args, " "))
         }
 
-	if verbose {
         //  Extract image_version from image_name_version (affects behaviour):
         if (strings.Contains(image_name_version, ":")) {
             image_version=image_name_version[ 1+strings.Index(image_name_version, ":") : ]
@@ -433,6 +475,8 @@ func main() {
 	mux.HandleFunc("/", index)
 	mux.HandleFunc("/test", statusCodeTest)
 
+	mux.HandleFunc("/version", showVersion)
+
 	mux.HandleFunc("/echo", formatRequestHandler)
 	mux.HandleFunc("/ECHO", formatRequestHandler)
 
@@ -453,37 +497,12 @@ func main() {
             os.Exit(3)
 	}
 
-        logo_base_path     = "static/img/kubernetes_"
-        if CaseInsensitiveContains(image_name_version, "docker-demo") {
-            logo_base_path     = "static/img/docker_"
-        }
-        if CaseInsensitiveContains(image_name_version, "k8s-demo") {
-            logo_base_path     = "static/img/kubernetes_"
-        }
-        if CaseInsensitiveContains(image_name_version, "ckad-demo") {
-            logo_base_path     = "static/img/kubernetes_"
-        }
-        if (image_version == "1") {
-            logo_base_path     +=  "blue."
-	} else if (image_version == "2") {
-            logo_base_path     +=  "red."
-	log.Printf("RED")
-	} else if (image_version == "3") {
-            logo_base_path     +=  "green."
-	} else if (image_version == "4") {
-            logo_base_path     +=  "cyan."
-	} else if (image_version == "5") {
-            logo_base_path     +=  "yellow."
-	} else if (image_version == "6") {
-            logo_base_path     +=  "white."
-	} else {
-            logo_base_path     +=  "blue."
-        }
-        logo_path = logo_base_path +  "txt" 
-
+	logo_path = setLogoPath()
+	if verbose {
             log.Printf("Default ascii art <%s>\n", logo_path)
         }
-	log.Printf("listening on %s\n", listenAddr)
+
+	log.Printf("Now listening on %s\n", listenAddr)
 	if err := http.ListenAndServe(listenAddr, mux); err != nil {
 		log.Fatalf("error serving: %s", err)
 	}

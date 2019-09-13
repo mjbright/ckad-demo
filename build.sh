@@ -183,6 +183,9 @@ function TIMER_hhmmss {
 
 # END: TIMER FUNCTIONS ================================================
 
+DATE_VERSION=$(date +%Y-%b-%d_%02Hh%02Mm%02S)
+sed -i.bak "s/__DATE_VERSION__ *=.*/__DATE_VERSION__ = \"$DATE_VERSION\"/" main.go
+
 TIME check_build main.go
 
 ## -- Args: -------------------------------------------------------------
