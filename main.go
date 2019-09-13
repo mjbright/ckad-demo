@@ -37,6 +37,7 @@ var (
 	// -- defaults: to be overridden by env/cli/cm ------
 	image_name_version = "mjbright/ckad-demo:1"
 	image_version      = "1"
+	message            = ""
 
         logo_base_path = "static/img/kubernetes_blue"
         logo_path     = "static/img/kubernetes_blue.txt"
@@ -60,6 +61,7 @@ type (
 	Content struct {
 		Title       string
 		Hostname    string
+		Message     string
 		PNG         string
 		Image       string
 		NetworkInfo string
@@ -268,6 +270,7 @@ func index(w http.ResponseWriter, r *http.Request) {
             p4 := fmt.Sprintf("image <%s>\n", image_name_version)
 
 	    if (r.URL.Path != "/1line") && (r.URL.Path != "/1") {
+                if message != "" { fmt.Fprintf(w, "message\n"); }
                 fmt.Fprintf(w, "\n")
                 fmt.Fprintf(w, p1)
                 fmt.Fprintf(w, "\n")
@@ -277,6 +280,7 @@ func index(w http.ResponseWriter, r *http.Request) {
                 fmt.Fprintf(w, p4)
                 fmt.Fprintf(w, "\n")
             } else {
+                if message != "" { p1 = message + " " + p1; }
                 fmt.Fprintf(w, p1 + " " + p2 + " " + p3 + p4)
             }
 
@@ -295,11 +299,13 @@ func index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	title := os.Getenv("image: " + image_name_version)
+	//title := os.Getenv("image: " + image_name_version)
+	title := message + "[image: " + image_name_version + "]"
 
 	cnt := &Content{
 		Title:    title,
 		Hostname: hostname,
+		Message:  message,
 		PNG:      logo_path,
 		Image:    image_name_version,
 		NetworkInfo:  networkInfo,
@@ -368,6 +374,8 @@ func main() {
 
 	f.StringVar(&image_name_version, "image", image_name_version, "image")
 	f.StringVar(&image_name_version, "i", image_name_version, "image")
+
+	f.StringVar(&message,            "message", "", "message")
 
 	f.BoolVar(&verbose,      "verbose",false,   "verbose (false)")
 	f.BoolVar(&verbose,      "v",      false,   "verbose (false)")
