@@ -13,6 +13,9 @@ ADD . /src
 # VERSION to use with 'FROM scratch' below:
 RUN cd /src && __STAGE1_BUILD__
 
+RUN ls -al  /src/demo-binary
+RUN ls -alh /src/demo-binary
+
 # -- final stage ---------------------------------------------
 
 # TODO LATER have base image here as a VARIABLE - scratch or alpine => produce different images
@@ -23,6 +26,9 @@ ADD templates /app/templates
 
 WORKDIR /app
 COPY    --from=build-env /src/demo-binary /app/
+
+RUN ls -al demo-binary
+RUN ls -alh demo-binary
 
 EXPOSE __EXPOSE_PORT__
 ENTRYPOINT ["/app/demo-binary"]
