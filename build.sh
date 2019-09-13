@@ -48,6 +48,11 @@ function build {
     EXPOSE_PORT=$1; shift
     TEMPLATE_CMD="$*"; set --
 
+    sed < main.go > main.build.go \
+           -e "s/TEMPLATE_DATE_VERSION/$DATE_VERSION/" \
+           -e "s/TEMPLATE_IMAGE_NAME_VERSION/$IMAGE_NAME_VERSION/" \
+           -e "s/TEMPLATE_IMAGE_VERSION/$IMAGE_VERSION/" \
+
     [ "$TEMPLATE_CMD" = "CMD" ] && die "build: Missing command in <$TEMPLATE_CMD>"
     write_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT "$TEMPLATE_CMD"
 
@@ -94,8 +99,8 @@ function write_dockerfile {
     #echo "EXPOSE_PORT=$EXPOSE_PORT"
     [ "$TEMPLATE_CMD" = "CMD" ] && die "write_dockerfile: Missing command in <$TEMPLATE_CMD>"
 
-    STATIC_STAGE1_BUILD="CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags '-w' -o demo-binary *.go"
-    DYNAMIC_STAGE1_BUILD="CGO_ENABLED=0 go build -a -o demo-binary"
+    STATIC_STAGE1_BUILD="CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags '-w' -o demo-binary main.build.go"
+    DYNAMIC_STAGE1_BUILD="CGO_ENABLED=0 go build -a -o demo-binary main.build.go"
 
     case "$FROM_IMAGE" in
         "scratch") STAGE1_BUILD=$STATIC_STAGE1_BUILD;;
@@ -183,10 +188,12 @@ function TIMER_hhmmss {
 
 # END: TIMER FUNCTIONS ================================================
 
-DATE_VERSION=$(date +%Y-%b-%d_%02Hh%02Mm%02S)
-sed -i.bak "s/__DATE_VERSION__ *=.*/__DATE_VERSION__ = \"$DATE_VERSION\"/" main.go
+sed < main.go > main.build.go  \
+           -e "s/TEMPLATE_DATE_VERSION/$DATE_VERSION/" \
+           -e "s/TEMPLATE_IMAGE_NAME_VERSION/$IMAGE_NAME_VERSION/" \
+           -e "s/TEMPLATE_IMAGE_VERSION/$IMAGE_VERSION/" \
 
-TIME check_build main.go
+TIME check_build main.build.go
 
 ## -- Args: -------------------------------------------------------------
 

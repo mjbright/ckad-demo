@@ -35,11 +35,11 @@ const (
 var (
 	// -- defaults: can be overridden by cli ------------
 	// -- defaults: to be overridden by env/cli/cm ------
-	image_name_version = "mjbright/ckad-demo:1"
-	image_version      = "1"
 	message            = ""
 
-	__DATE_VERSION__ = "2019-Sep-13_18h11m33"
+	__IMAGE_NAME_VERSION__ = "TEMPLATE_IMAGE_NAME_VERSION"
+	__IMAGE_VERSION__      = "TEMPLATE_IMAGE_VERSION"
+	__DATE_VERSION__       = "TEMPLATE_DATE_VERSION"
 
         logo_base_path = "static/img/kubernetes_blue"
         logo_path     = "static/img/kubernetes_blue.txt"
@@ -228,7 +228,7 @@ func index(w http.ResponseWriter, r *http.Request) {
         }
 
         // TOOD: bad
-        // if CaseInsensitiveContains(image_version, "bad") ||
+        // if CaseInsensitiveContains(__IMAGE_VERSION__, "bad") ||
         // }
 
         if CaseInsensitiveContains(userAgent, "wget") ||
@@ -271,7 +271,7 @@ func index(w http.ResponseWriter, r *http.Request) {
                     p3 = p3 + "\n"
                 }
             }
-            p4 := fmt.Sprintf("image <%s>\n", image_name_version)
+            p4 := fmt.Sprintf("image <%s>\n", __IMAGE_NAME_VERSION__)
 
 	    if multilineOP {
                 if message != "" { fmt.Fprintf(w, "message\n"); }
@@ -303,15 +303,14 @@ func index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//title := os.Getenv("image: " + image_name_version)
-	title := message + "[image: " + image_name_version + "]"
+	title := message + "[image: " + __IMAGE_NAME_VERSION__ + "]"
 
 	cnt := &Content{
 		Title:    title,
 		Hostname: hostname,
 		Message:  message,
 		PNG:      logo_path,
-		Image:    image_name_version,
+		Image:    __IMAGE_NAME_VERSION__,
 		NetworkInfo:  networkInfo,
 		RequestPP:  requestPP,
         }
@@ -356,34 +355,34 @@ func ping(w http.ResponseWriter, r *http.Request) {
 }
 
 func showVersion(w http.ResponseWriter, r *http.Request) {
-	resp := fmt.Sprintf("version: %s\n", __DATE_VERSION__)
+	resp := fmt.Sprintf("version: %s [%s]\n", __DATE_VERSION__, __IMAGE_NAME_VERSION__)
 	w.Write([]byte(resp))
 }
 
 func setLogoPath() string {
     logo_base_path     = "static/img/kubernetes_"
 
-    if CaseInsensitiveContains(image_name_version, "docker-demo") {
+    if CaseInsensitiveContains(__IMAGE_NAME_VERSION__, "docker-demo") {
         logo_base_path     = "static/img/docker_"
     }
-    if CaseInsensitiveContains(image_name_version, "k8s-demo") {
+    if CaseInsensitiveContains(__IMAGE_NAME_VERSION__, "k8s-demo") {
         logo_base_path     = "static/img/kubernetes_"
     }
-    if CaseInsensitiveContains(image_name_version, "ckad-demo") {
+    if CaseInsensitiveContains(__IMAGE_NAME_VERSION__, "ckad-demo") {
         logo_base_path     = "static/img/kubernetes_"
     }
 
-    if (image_version == "1") {
+    if (__IMAGE_VERSION__ == "1") {
         logo_base_path     +=  "blue."
-    } else if (image_version == "2") {
+    } else if (__IMAGE_VERSION__ == "2") {
         logo_base_path     +=  "red."
-    } else if (image_version == "3") {
+    } else if (__IMAGE_VERSION__ == "3") {
         logo_base_path     +=  "green."
-    } else if (image_version == "4") {
+    } else if (__IMAGE_VERSION__ == "4") {
         logo_base_path     +=  "cyan."
-    } else if (image_version == "5") {
+    } else if (__IMAGE_VERSION__ == "5") {
         logo_base_path     +=  "yellow."
-    } else if (image_version == "6") {
+    } else if (__IMAGE_VERSION__ == "6") {
         logo_base_path     +=  "white."
     } else {
         logo_base_path     +=  "blue."
@@ -415,8 +414,8 @@ func main() {
 	f.IntVar(&readinessSecs, "ready",  0,   "readiness delay (0 sec)")
 	f.IntVar(&readinessSecs, "r",      0,   "readiness delay (0 sec)")
 
-	f.StringVar(&image_name_version, "image", image_name_version, "image")
-	f.StringVar(&image_name_version, "i", image_name_version, "image")
+	f.StringVar(&__IMAGE_NAME_VERSION__, "image", __IMAGE_NAME_VERSION__, "image")
+	f.StringVar(&__IMAGE_NAME_VERSION__, "i", __IMAGE_NAME_VERSION__, "image")
 
 	f.StringVar(&message,            "message", "", "message")
 
@@ -444,14 +443,6 @@ func main() {
             log.Printf("%s Version: %s\n", os.Args[0], __DATE_VERSION__)
 
             log.Printf("%s\n", strings.Join(os.Args, " "))
-        }
-
-        //  Extract image_version from image_name_version (affects behaviour):
-        if (strings.Contains(image_name_version, ":")) {
-            image_version=image_name_version[ 1+strings.Index(image_name_version, ":") : ]
-	    if verbose {
-                log.Printf("Extracted image version <%s>\n", image_version)
-	    }
         }
 
         if die {
