@@ -216,9 +216,11 @@ func index(w http.ResponseWriter, r *http.Request) {
         //
         userAgent := r.Header.Get("User-Agent")
 
+        multilineOP := (r.URL.Path != "/1line") && (r.URL.Path != "/1l") && (r.URL.Path != "/1")
+
         networkInfo := ""
         requestPP   := ""
-        if verbose {
+        if verbose && multilineOP {
             networkInfo = getNetworkInfo()
         }
         if headers {
@@ -251,7 +253,7 @@ func index(w http.ResponseWriter, r *http.Request) {
             from := r.RemoteAddr
             fwd := r.Header.Get("X-Forwarded-For")
 
-	    if (r.URL.Path != "/1line") && (r.URL.Path != "/1") {
+	    if multilineOP {
 	        w.Write([]byte(content))
             }
 
@@ -265,13 +267,13 @@ func index(w http.ResponseWriter, r *http.Request) {
             p3 := ""
             if networkInfo != "" {
                 p3 = fmt.Sprintf("%s ", networkInfo)
-	        if (r.URL.Path != "/1line") && (r.URL.Path != "/1") {
+	        if multilineOP {
                     p3 = p3 + "\n"
                 }
             }
             p4 := fmt.Sprintf("image <%s>\n", image_name_version)
 
-	    if (r.URL.Path != "/1line") && (r.URL.Path != "/1") {
+	    if multilineOP {
                 if message != "" { fmt.Fprintf(w, "message\n"); }
                 fmt.Fprintf(w, "\n")
                 fmt.Fprintf(w, p1)
