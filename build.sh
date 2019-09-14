@@ -54,10 +54,10 @@ function build {
     EXPOSE_PORT=$1; shift
     TEMPLATE_CMD="$*"; set --
 
-    sed < main.go > main.build.go \
-           -e "s/TEMPLATE_DATE_VERSION/$DATE_VERSION/" \
-           -e "s/TEMPLATE_IMAGE_NAME_VERSION/$IMAGE_NAME_VERSION/" \
-           -e "s/TEMPLATE_IMAGE_VERSION/$IMAGE_VERSION/" \
+    IMAGE_NAME_VERSION=$IMAGE_TAG
+    IMAGE_VERSION=${IMAGE_TAG#*:}
+
+    template_go_src main.go main.build.go
 
     [ "$TEMPLATE_CMD" = "CMD" ] && die "build: Missing command in <$TEMPLATE_CMD>"
     write_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT "$TEMPLATE_CMD"
@@ -125,6 +125,7 @@ function write_dockerfile {
 
     DFID=$(echo $IMAGE_TAG | sed -e 's/\//_/g')
     cp -a Dockerfile tmp/Dockerfile.${DFID}
+    cp -a main.build.go tmp/main.build.go.${DFID}
 }
 
 function basic_2stage_build {
@@ -192,14 +193,53 @@ function TIMER_hhmmss {
     return 0
 }
 
-# END: TIMER FUNCTIONS ================================================
+function template_go_src {
+    SRC=$1;       shift
+    BUILD_SRC=$1; shift
 
-sed < main.go > main.build.go  \
+    sed < ${SRC} > ${BUILD_SRC}  \
            -e "s/TEMPLATE_DATE_VERSION/$DATE_VERSION/" \
-           -e "s/TEMPLATE_IMAGE_NAME_VERSION/$IMAGE_NAME_VERSION/" \
+           -e "s?TEMPLATE_IMAGE_NAME_VERSION?$IMAGE_NAME_VERSION?" \
            -e "s/TEMPLATE_IMAGE_VERSION/$IMAGE_VERSION/" \
 
+    ls -altr ${SRC} ${BUILD_SRC}
+    [ ! -s ${BUILD_SRC} ] && die "Empty ${BUILD_SRC} !!"
+}
+
+function build_and_push_tags {
+    for REPO_NAME in $REPO_NAMES; do
+        echo; echo "---- Building images <$REPO_NAME> --------"
+        for TAG in $TAGS; do
+            REPO="mjbright/$REPO_NAME"
+            PORT=80
+
+            IMAGE="${REPO}:${TAG}"
+	    #CMD="/app/demo-binary --listen :$PORT -l 10 -r 10 -i $IMAGE"
+	    #CMD="['/app/demo-binary','--listen',':$PORT','-l','$LIVE','-r','$READY','-i','$IMAGE']"
+	    CMD="['--listen',':$PORT','-l','$LIVE','-r','$READY','-i','$IMAGE']"
+            build_and_push $IMAGE scratch $PORT $CMD
+
+            IMAGE="${REPO}:alpine${TAG}"
+	    #CMD="/app/demo-binary --listen :$PORT -l 10 -r 10 -i $IMAGE"
+	    #CMD="['/app/demo-binary','--listen',':$PORT','-l','$LIVE','-r','$READY','-i','$IMAGE']"
+	    CMD="['--listen',':$PORT','-l','$LIVE','-r','$READY','-i','$IMAGE']"
+            build_and_push $IMAGE alpine  $PORT $CMD
+
+            ## IMAGE="${REPO}:bad${TAG}"
+            ## build_and_push $IMAGE alpine  $PORT  "--listen :$PORT -l 10 -r 10 -i $IMAGE"
+        done
+    done
+}
+
+# END: TIMER FUNCTIONS ================================================
+
+IMAGE_NAME_VERSION=""
+IMAGE_VERSION=""
+
+template_go_src main.go main.build.go
+
 TIME check_build main.build.go
+#die "OK"
 
 ## -- Args: -------------------------------------------------------------
 
