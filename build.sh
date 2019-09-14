@@ -76,11 +76,13 @@ function build {
     TIME docker pull $IMAGE_TAG    || true
 
     # Build the compile stage:
-    TIME docker build --target build-env     --cache-from=$STAGE1_IMAGE --tag $STAGE1_IMAGE .
+    TIME docker build --target build-env     --cache-from=$STAGE1_IMAGE --tag $STAGE1_IMAGE . ||
+	    die "Build failed"
 
     # Build the runtime stage, using cached compile stage:
-    TIME docker build --target runtime-image --cache-from=$STAGE1_IMAGE \
-                     --cache-from=$IMAGE_TAG --tag $IMAGE_TAG .
+    TIME docker build --target runtime-image \
+	             --cache-from=$STAGE1_IMAGE \
+                     --cache-from=$IMAGE_TAG --tag $IMAGE_TAG . || die "Build failed"
     echo "CMD=<$TEMPLATE_CMD>"
     [ "$TEMPLATE_CMD" = "CMD" ] && die "Missing command in <$TEMPLATE_CMD>"
 
