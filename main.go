@@ -54,7 +54,7 @@ var (
 	readinessSecs int
 
 	dieafter int
-	die bool
+	die  bool
 	liveanddie bool
 	readyanddie bool
 
@@ -374,17 +374,17 @@ func setLogoPath() string {
         logo_base_path     = "static/img/kubernetes_"
     }
 
-    if (__IMAGE_VERSION__ == "1") {
+    if CaseInsensitiveContains(__IMAGE_VERSION__, "1") {
         logo_base_path     +=  "blue."
-    } else if (__IMAGE_VERSION__ == "2") {
+    } else if CaseInsensitiveContains(__IMAGE_VERSION__, "2") {
         logo_base_path     +=  "red."
-    } else if (__IMAGE_VERSION__ == "3") {
+    } else if CaseInsensitiveContains(__IMAGE_VERSION__, "3") {
         logo_base_path     +=  "green."
-    } else if (__IMAGE_VERSION__ == "4") {
+    } else if CaseInsensitiveContains(__IMAGE_VERSION__, "4") {
         logo_base_path     +=  "cyan."
-    } else if (__IMAGE_VERSION__ == "5") {
+    } else if CaseInsensitiveContains(__IMAGE_VERSION__, "5") {
         logo_base_path     +=  "yellow."
-    } else if (__IMAGE_VERSION__ == "6") {
+    } else if CaseInsensitiveContains(__IMAGE_VERSION__, "6") {
         logo_base_path     +=  "white."
     } else {
         logo_base_path     +=  "blue."
