@@ -28,7 +28,8 @@ function check_build {
     ls -alh demo-binary
 
     echo; echo "---- Checking binary version ----------"
-    ./demo-binary --version | grep $DATE_VERSION && die "Bad version != $DATE_VERSION"
+    ./demo-binary --version |&
+        grep $DATE_VERSION || die "Bad version != $DATE_VERSION"
 
     echo; echo "---- Testing  binary ----------"
     LISTEN=127.0.0.1:8080
@@ -77,22 +78,22 @@ function build {
 
     # Build the compile stage:
     TIME docker build --target build-env     --cache-from=$STAGE1_IMAGE --tag $STAGE1_IMAGE . ||
-	    die "Build failed"
+        die "Build failed"
 
     # Build the runtime stage, using cached compile stage:
     TIME docker build --target runtime-image \
-	             --cache-from=$STAGE1_IMAGE \
-                     --cache-from=$IMAGE_TAG --tag $IMAGE_TAG . || die "Build failed"
+                 --cache-from=$STAGE1_IMAGE \
+                 --cache-from=$IMAGE_TAG --tag $IMAGE_TAG . || die "Build failed"
     echo "CMD=<$TEMPLATE_CMD>"
     [ "$TEMPLATE_CMD" = "CMD" ] && die "Missing command in <$TEMPLATE_CMD>"
 
-    ITAG=$(echo $IMAGE_TAG | sed 's?[/:]?_?g')
+    ITAG=$(echo $IMAGE_TAG | sed 's?[/:_]?-?g')
     echo; echo "---- Checking $IMAGE_TAG version ----------"
-    docker run --rm --name versiontest$ITAG mjbright/ckad-demo:1 --version | grep $DATE_VERSION &&
-	    die "Bad version != $DATE_VERSION"
+    docker run --rm --name versiontest-$ITAG mjbright/ckad-demo:1 --version |&
+        grep $DATE_VERSION || die "Bad version != $DATE_VERSION"
 
     echo; echo "---- Testing  $IMAGE_TAG ----------"
-    CONTAINERNAME=buildtest$ITAG
+    CONTAINERNAME=buildtest-$ITAG
     docker run --rm -d --name $CONTAINERNAME -p 8181:$EXPOSE_PORT $IMAGE_TAG
     CONTAINERID=$(docker ps -ql)
     curl -sL 127.0.0.1:8181/1 ||
@@ -110,19 +111,25 @@ function build {
 function test_kubernetes_images {
     # NO USE as this CAN ONLY BE DONE AFTER push
 
-    JOBNAME=kubejobtest$ITAG
+    JOBNAME=kubejobtest-$ITAG
     # Prints to log, but difficult to manage, keeps restarting Pod
     #kubectl run --rm --image-pull-policy '' --generator=run-pod/v1 --image=mjbright/ckad-demo:1 testerckad -it -- -v -die
     # Don't want --image-pull-policy '' as this will force pull from .... docker hub!!
     kubectl create job --image=$IMAGE_TAG $JOBNAME -- /app/demo-binary --version
-    sleep 1
-    kubectl get jobs/$JOBNAME | grep "1/1" || sleep 10
-    kubectl logs jobs/$JOBNAME | grep $DATE_VERSION &&
-	    die "Bad version != $DATE_VERSION"
+    #while ! kubectl get jobs/kubejobtest-mjbright-ckad-demo-1 | grep "1/1"; do echo X; sleep 1; done
+    #sleep 1
+    while ! kubectl get jobs/$JOBNAME | grep "1/1"; do
+        echo "Waiting for job to complete ..."; sleep 1;
+    done
+    #kubectl get jobs/$JOBNAME | grep "1/1" || sleep 10
+    kubectl logs jobs/$JOBNAME |& grep $DATE_VERSION || { 
+        kubectl delete jobs/$JOBNAME;
+        die "Bad version != $DATE_VERSION";
+    }
     kubectl delete jobs/$JOBNAME
 
     #kubectl run --rm --generator=run-pod/v1 --image=mjbright/ckad-demo:1 testerckad -it -- --listen 127.0.0.1:80
-    PODNAME=kubetest$ITAG
+    PODNAME=kubetest-$ITAG
     kubectl run --generator=run-pod/v1 --image=$IMAGE_TAG $PODNAME -- --listen 127.0.0.1:80
     kubectl port-forward pod/$PODNAME 8181:80 &
     PID=$!
@@ -255,15 +262,15 @@ function build_and_push_tags {
             PORT=80
 
             IMAGE="${REPO}:${TAG}"
-	    #CMD="/app/demo-binary --listen :$PORT -l 10 -r 10 -i $IMAGE"
-	    #CMD="['/app/demo-binary','--listen',':$PORT','-l','$LIVE','-r','$READY','-i','$IMAGE']"
-	    CMD="['--listen',':$PORT','-l','$LIVE','-r','$READY','-i','$IMAGE']"
+            #CMD="/app/demo-binary --listen :$PORT -l 10 -r 10 -i $IMAGE"
+            #CMD="['/app/demo-binary','--listen',':$PORT','-l','$LIVE','-r','$READY','-i','$IMAGE']"
+            CMD="['--listen',':$PORT','-l','$LIVE','-r','$READY','-i','$IMAGE']"
             build_and_push $IMAGE scratch $PORT $CMD
 
             IMAGE="${REPO}:alpine${TAG}"
-	    #CMD="/app/demo-binary --listen :$PORT -l 10 -r 10 -i $IMAGE"
-	    #CMD="['/app/demo-binary','--listen',':$PORT','-l','$LIVE','-r','$READY','-i','$IMAGE']"
-	    CMD="['--listen',':$PORT','-l','$LIVE','-r','$READY','-i','$IMAGE']"
+            #CMD="/app/demo-binary --listen :$PORT -l 10 -r 10 -i $IMAGE"
+            #CMD="['/app/demo-binary','--listen',':$PORT','-l','$LIVE','-r','$READY','-i','$IMAGE']"
+            CMD="['--listen',':$PORT','-l','$LIVE','-r','$READY','-i','$IMAGE']"
             build_and_push $IMAGE alpine  $PORT $CMD
 
             ## IMAGE="${REPO}:bad${TAG}"
