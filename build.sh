@@ -104,21 +104,25 @@ function build {
     TIME docker push $STAGE1_IMAGE
     TIME docker push $IMAGE_TAG
 
-    die "OK"
     test_kubernetes_images 
 }
 
 function test_kubernetes_images {
     # NO USE as this CAN ONLY BE DONE AFTER push
 
-    PODNAME=kubetest$ITAG
-    CHECK VERSION:
+    JOBNAME=kubejobtest$ITAG
     # Prints to log, but difficult to manage, keeps restarting Pod
     #kubectl run --rm --image-pull-policy '' --generator=run-pod/v1 --image=mjbright/ckad-demo:1 testerckad -it -- -v -die
     # Don't want --image-pull-policy '' as this will force pull from .... docker hub!!
+    kubectl create job --image=$IMAGE_TAG $JOBNAME -- /app/demo-binary --version
+    sleep 1
+    kubectl get jobs/$JOBNAME | grep "1/1" || sleep 10
+    kubectl logs jobs/$JOBNAME | grep $DATE_VERSION &&
+	    die "Bad version != $DATE_VERSION"
+    kubectl delete jobs/$JOBNAME
 
-    CHECK CONNECTION:
     #kubectl run --rm --generator=run-pod/v1 --image=mjbright/ckad-demo:1 testerckad -it -- --listen 127.0.0.1:80
+    PODNAME=kubetest$ITAG
     kubectl run --generator=run-pod/v1 --image=$IMAGE_TAG $PODNAME -- --listen 127.0.0.1:80
     kubectl port-forward pod/$PODNAME 8181:80 &
     PID=$!
