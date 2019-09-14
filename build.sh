@@ -290,6 +290,7 @@ while [ ! -z "$1" ]; do
     case $1 in
         [0-9]*)           TAGS+=" $1";;
         --tag|-t)         shift; TAGS=$1;;
+        --all|-a)         TAGS=$ALL_TAGS; REPO_NAMES=$ALL_REPO_NAMES;;
         --all-tags|-at)   TAGS=$ALL_TAGS;;
         --all-images|-ai) REPO_NAMES=$ALL_REPO_NAMES;;
     esac
