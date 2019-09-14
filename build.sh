@@ -210,10 +210,11 @@ function TIME {
     CMD_TIME=$(date +%Y-%b-%d_%02Hh%02Mm%02S)
     echo; echo "---- [$CMD_TIME] $CMD"
     TIMER_START
-    $CMD
+    $CMD; RET=$?
     TIMER_STOP
     echo "Took $TOOK secs [${HRS}h${MINS}m${SECS}]"
-    return 0
+    [ $RET -ne 0 ] && echo "ERROR: returned $RET"
+    return $RET
 }
 
 function TIMER_hhmmss {
