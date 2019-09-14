@@ -259,7 +259,13 @@ func index(w http.ResponseWriter, r *http.Request) {
 	        w.Write([]byte(content))
             }
 
-            p1 := fmt.Sprintf("Served from container %s%s[%s]%s", colour_me_yellow, hostname, myIP, colour_me_normal)
+            p1 := ""
+	    if __IMAGE_NAME_VERSION__ == "" {
+                p1 = fmt.Sprintf("Served from host %s%s[%s]%s", colour_me_yellow, hostname, myIP, colour_me_normal)
+	    } else {
+                p1 = fmt.Sprintf("Served from container %s%s[image %s][%s]%s", colour_me_yellow, hostname, __IMAGE_NAME_VERSION__, myIP, colour_me_normal)
+	    }
+            //p1 := fmt.Sprintf("Served from container %s%s[%s]%s", colour_me_yellow, hostname, myIP, colour_me_normal)
             p2 := ""
             if fwd != "" {
                 p2 = fmt.Sprintf("Request from %s [%s]", from, fwd)
@@ -273,7 +279,6 @@ func index(w http.ResponseWriter, r *http.Request) {
                     p3 = p3 + "\n"
                 }
             }
-            p4 := fmt.Sprintf("image <%s>\n", __IMAGE_NAME_VERSION__)
 
 	    if multilineOP {
                 if message != "" { fmt.Fprintf(w, "message\n"); }
@@ -283,11 +288,10 @@ func index(w http.ResponseWriter, r *http.Request) {
                 fmt.Fprintf(w, p2)
                 fmt.Fprintf(w, "\n")
                 fmt.Fprintf(w, p3)
-                fmt.Fprintf(w, p4)
                 fmt.Fprintf(w, "\n")
             } else {
                 if message != "" { p1 = message + " " + p1; }
-                fmt.Fprintf(w, p1 + " " + p2 + " " + p3 + p4)
+                fmt.Fprintf(w, p1 + " " + p2 + " " + p3 + "\n")
             }
 
 	    return
