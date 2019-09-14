@@ -103,6 +103,33 @@ function build {
     # Push the new versions:
     TIME docker push $STAGE1_IMAGE
     TIME docker push $IMAGE_TAG
+
+    die "OK"
+    test_kubernetes_images 
+}
+
+function test_kubernetes_images {
+    # NO USE as this CAN ONLY BE DONE AFTER push
+
+    PODNAME=kubetest$ITAG
+    CHECK VERSION:
+    # Prints to log, but difficult to manage, keeps restarting Pod
+    #kubectl run --rm --image-pull-policy '' --generator=run-pod/v1 --image=mjbright/ckad-demo:1 testerckad -it -- -v -die
+    # Don't want --image-pull-policy '' as this will force pull from .... docker hub!!
+
+    CHECK CONNECTION:
+    #kubectl run --rm --generator=run-pod/v1 --image=mjbright/ckad-demo:1 testerckad -it -- --listen 127.0.0.1:80
+    kubectl run --generator=run-pod/v1 --image=$IMAGE_TAG $PODNAME -- --listen 127.0.0.1:80
+    kubectl port-forward pod/$PODNAME 8181:80 &
+    PID=$!
+
+    curl -sL 127.0.0.1:8181/1 ||
+        die "Failed to interrogate pod <$PODNAME> from image <$IMAGE_TAG>"
+
+    # NEED TO KILL POD
+    kill -9 $PID
+    kubectl delete pod/$PODNAME
+
 }
 
 function write_dockerfile {
