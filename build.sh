@@ -315,29 +315,9 @@ READY=0
 LIVE=03
 READY=03
 
-for REPO_NAME in $REPO_NAMES; do
-    echo; echo "---- Building images <$REPO_NAME> --------"
-    for TAG in $TAGS; do
-        REPO="mjbright/$REPO_NAME"
-        PORT=80
-
-        IMAGE="${REPO}:${TAG}"
-	#CMD="/app/demo-binary --listen :$PORT -l 10 -r 10 -i $IMAGE"
-	CMD="['/app/demo-binary','--listen',':$PORT','-l','10','-r','10','-i','$IMAGE']"
-        build_and_push $IMAGE scratch $PORT $CMD
-
-        IMAGE="${REPO}:alpine${TAG}"
-	#CMD="/app/demo-binary --listen :$PORT -l 10 -r 10 -i $IMAGE"
-	CMD="['/app/demo-binary','--listen',':$PORT','-l','10','-r','10','-i','$IMAGE']"
-        build_and_push $IMAGE alpine  $PORT $CMD
-
-        ## IMAGE="${REPO}:bad${TAG}"
-        ## build_and_push $IMAGE alpine  $PORT  "--listen :$PORT -l 10 -r 10 -i $IMAGE"
-    done
-done
+build_and_push_tags
 
 START_S=$START0_S; TIMER_STOP; echo "SCRIPT Took $TOOK secs [${HRS}h${MINS}m${SECS}]"
-
 
 #build_and_push "mjbright/ckad-demo:alpine1" "alpine" 
 
