@@ -13,7 +13,7 @@ ADD . /src
 # VERSION to use with 'FROM scratch' below:
 RUN cd /src && __STAGE1_BUILD__
 
-RUN ls -al  /src/demo-binary; ls -alh /src/demo-binary; /src/demo-binary -v -die; exit 0
+RUN ls -al  /src/demo-binary; ls -alh /src/demo-binary; /src/demo-binary --version
 
 # -- final stage ---------------------------------------------
 
@@ -25,7 +25,12 @@ ADD templates /app/templates
 WORKDIR /app
 COPY    --from=build-env /src/demo-binary /app/
 
-RUN ls -al  /app/demo-binary; ls -alh /app/demo-binary; /app/demo-binary -v -die; exit 0
+# No shell, ls available in scratch image:
+#RUN ls -al  /app/demo-binary; ls -alh /app/demo-binary; /app/demo-binary -v -die; exit 0
+
+# No shell, available in scratch image so use exec format:
+#RUN /app/demo-binary --version
+RUN ["/app/demo-binary", "--version"]
 
 EXPOSE __EXPOSE_PORT__
 ENTRYPOINT ["/app/demo-binary"]
