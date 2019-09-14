@@ -88,8 +88,8 @@ function build {
 
     ITAG=$(echo $IMAGE_TAG | sed 's?[/:]?_?g')
     echo; echo "---- Checking $IMAGE_TAG version ----------"
-    docker run --rm --name versiontest$ITAG mjbright/ckad-demo:1 --version &&
-        grep $DATE_VERSION && die "Bad version != $DATE_VERSION"
+    docker run --rm --name versiontest$ITAG mjbright/ckad-demo:1 --version | grep $DATE_VERSION &&
+	    die "Bad version != $DATE_VERSION"
 
     echo; echo "---- Testing  $IMAGE_TAG ----------"
     CONTAINERNAME=buildtest$ITAG
