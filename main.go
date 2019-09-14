@@ -57,6 +57,8 @@ var (
 	die bool
 	liveanddie bool
 	readyanddie bool
+
+	version  bool
 )
 
 type (
@@ -419,6 +421,8 @@ func main() {
 
 	f.StringVar(&message,            "message", "", "message")
 
+	f.BoolVar(&version,      "version", false,  "Show version and exit")
+
 	f.BoolVar(&verbose,      "verbose",false,   "verbose (false)")
 	f.BoolVar(&verbose,      "v",      false,   "verbose (false)")
 	f.BoolVar(&headers,      "headers",false,   "show headers (false)")
@@ -439,10 +443,15 @@ func main() {
         // fmt.Println("Visit() after Parse()"); f.Visit(visitor);
         // fmt.Println("VisitAll() after Parse()") f.VisitAll(visitor)
 
-        if verbose {
+        if verbose || version {
             log.Printf("%s Version: %s\n", os.Args[0], __DATE_VERSION__)
 
+	    if version {
+                os.Exit(0)
+	    }
+
             log.Printf("%s\n", strings.Join(os.Args, " "))
+
         }
 
         if die {
