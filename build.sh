@@ -27,6 +27,9 @@ function check_build {
     [ ! -x demo-binary ] && die "Failed to build binary"
     ls -alh demo-binary
 
+    echo; echo "---- Checking binary version ----------"
+    ./demo-binary --version | grep $DATE_VERSION && die "Bad version != $DATE_VERSION"
+
     echo; echo "---- Testing  binary ----------"
     LISTEN=127.0.0.1:8080
     ./demo-binary --listen $LISTEN &
