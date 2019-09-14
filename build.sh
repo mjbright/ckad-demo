@@ -86,12 +86,19 @@ function build {
     echo "CMD=<$TEMPLATE_CMD>"
     [ "$TEMPLATE_CMD" = "CMD" ] && die "Missing command in <$TEMPLATE_CMD>"
 
-    docker run -d --name BUILD_TEST -p 8181:$EXPOSE_PORT $IMAGE_TAG
+    ITAG=$(echo $IMAGE_TAG | sed 's?[/:]?_?g')
+    echo; echo "---- Checking $IMAGE_TAG version ----------"
+    docker run --rm --name versiontest$ITAG mjbright/ckad-demo:1 --version &&
+        grep $DATE_VERSION && die "Bad version != $DATE_VERSION"
+
+    echo; echo "---- Testing  $IMAGE_TAG ----------"
+    CONTAINERNAME=buildtest$ITAG
+    docker run --rm -d --name $CONTAINERNAME -p 8181:$EXPOSE_PORT $IMAGE_TAG
     CONTAINERID=$(docker ps -ql)
     curl -sL 127.0.0.1:8181/1 ||
-        die "Failed to interrogate container <$CONTAINERID> 'BUILD_TEST' from image <$IMAGE_TAG>"
+      die "Failed to interrogate container <$CONTAINERID> $CONTAINERNAME from image <$IMAGE_TAG>"
     docker stop $CONTAINERID
-    docker rm $CONTAINERID
+    #docker rm $CONTAINERID
 
     # Push the new versions:
     TIME docker push $STAGE1_IMAGE
