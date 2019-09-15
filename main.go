@@ -419,8 +419,8 @@ func main() {
 	f.IntVar(&readinessSecs, "ready",  0,   "readiness delay (0 sec)")
 	f.IntVar(&readinessSecs, "r",      0,   "readiness delay (0 sec)")
 
-	f.StringVar(&__IMAGE_NAME_VERSION__, "image", __IMAGE_NAME_VERSION__, "image")
-	f.StringVar(&__IMAGE_NAME_VERSION__, "i", __IMAGE_NAME_VERSION__, "image")
+	//f.StringVar(&__IMAGE_NAME_VERSION__, "image", __IMAGE_NAME_VERSION__, "image")
+	//f.StringVar(&__IMAGE_NAME_VERSION__, "i", __IMAGE_NAME_VERSION__, "image")
 
 	f.StringVar(&message,            "message", "", "message")
 
