@@ -289,7 +289,10 @@ func index(w http.ResponseWriter, r *http.Request) {
 		networkInfo, d,
 	        msg)
 
-            fmt.Fprintf(w, p1 + "\n")
+            fmt.Fprintf(w, p1)
+            if !multilineOP {
+                fmt.Fprintf(w, "\n")
+            }
 
 	    return
 	}
@@ -449,9 +452,7 @@ func main() {
 	    if version {
                 os.Exit(0)
 	    }
-
             log.Printf("%s\n", strings.Join(os.Args, " "))
-
         }
 
         if die {
@@ -469,7 +470,7 @@ func main() {
             os.Exit(2)
 	}
 
-	// ---- setup routes:
+	// ---- setup routes: -------------------------------------------------
 
 	// ---- act as static web server on /static/*
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
