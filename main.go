@@ -70,7 +70,7 @@ type (
 		PNG         string
 		UsingImage  string
 		NetworkInfo string
-		RequestPP   string
+		FormattedReq   string
 	}
 )
 
@@ -127,9 +127,9 @@ func CaseInsensitiveContains(s, substr string) bool {
 // From: https://medium.com/doing-things-right/pretty-printing-http-requests-in-golang-a918d5aaa000
 //
 func formatRequestHandler(w http.ResponseWriter, r *http.Request) {
-    ret := formatRequest(r)
+    formattedReq := formatRequest(r)
 
-    fmt.Fprintf(w, "%s", ret)
+    fmt.Fprintf(w, "%s", formattedReq)
     return
 }
 
@@ -222,12 +222,12 @@ func index(w http.ResponseWriter, r *http.Request) {
         multilineOP := (r.URL.Path != "/1line") && (r.URL.Path != "/1l") && (r.URL.Path != "/1")
 
         networkInfo := ""
-        requestPP   := ""
+        formattedReq   := ""
         if verbose && multilineOP {
             networkInfo = getNetworkInfo()
         }
         if headers {
-            requestPP   = formatRequest(r)
+            formattedReq   = formatRequest(r) + "\n"
         }
 
         // TOOD: bad
@@ -258,7 +258,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 
             logo_path  =  logo_base_path + "txt"
 
-            fmt.Fprintf(w, "\n%s", requestPP)
+            fmt.Fprintf(w, "%s", formattedReq)
             var content []byte
 
 	    if r.URL.Path == "/map" || r.URL.Path == "/MAP" {
@@ -310,7 +310,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 		PNG:      logo_path,
 		UsingImage: imageInfo,
 		NetworkInfo:  networkInfo,
-		RequestPP:  requestPP,
+		FormattedReq:  formattedReq,
         }
 
         // apply Context values to template

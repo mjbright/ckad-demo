@@ -3,26 +3,34 @@
 
     <head>
         <meta charset="utf-8">
-        <title>{{ .Hostname }} - {{ .Title }}</title>
         <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-        <meta name="author" content="Evan Hazlett">
-        <meta name="description" content="Docker Demo">
+        <meta name="author" content="Michael Bright">
+        <meta name="description" content="Container Demo">
         <link rel="stylesheet" type="text/css" href="static/css/base.css">
+        {{ if ne .Title "" }}
+            <title>{{ .Hostname }} - {{ .Title }}</title>
+        {{ else }}
+            <title>{{ .Hostname }} </title>
+        {{ end }}
     </head>
 
     <body>
         <div class="content">
-            {{ if ne .RequestPP "" }}
-                <pre style="text-align: left; white-space: pre-line;">{{ .RequestPP }}</pre>
+            {{ if ne .FormattedReq "" }}
+                <pre style="text-align: left; white-space: pre-line;">{{ .FormattedReq }}</pre>
             {{ end }}
 
             <img src="{{ .PNG }}"/>
 
-            <h1 class="lsf title">{{ .Message }}</h1>
+            {{ if ne .Message "" }}
+                <h1 class="lsf title">{{ .Message }}</h1>
+            {{ end }}
 
             <h2 class="lsf info">Served from {{ .Hosttype }} <strong>{{ .Hostname }}</strong></h2>
-            <h3 class="lsf info">{{ .UsingImage }}</h3>
+            {{ if ne .UsingImage "" }}
+                <h3 class="lsf info">{{ .UsingImage }}</h3>
+            {{ end }}
 
             {{ if ne .NetworkInfo "" }}
                 <h3 class="lsf info">Served from network:{{ .NetworkInfo }}</h3>
