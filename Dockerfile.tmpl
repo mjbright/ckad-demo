@@ -33,7 +33,13 @@ COPY    --from=build-env /src/demo-binary /app/
 RUN ["/app/demo-binary", "--version"]
 
 EXPOSE __EXPOSE_PORT__
-ENTRYPOINT ["/app/demo-binary"]
 
+# With this form, we would need to override entrypoint if we want a shell (with alpine version):
+#     docker run --entrypoint /bin/sh --rm -it mjbright/ckad-demo:alpine1
+#   ENTRYPOINT ["/app/demo-binary"]
+#   CMD __TEMPLATE_CMD__
+#   Where CMD is "--listen :$PORT -l 10 -r 10"
+
+# With this form, we can overwrite the command:
 CMD __TEMPLATE_CMD__
 
