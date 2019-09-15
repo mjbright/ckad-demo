@@ -5,6 +5,7 @@
 # Log output:
 
 DATE_VERSION=$(date +%Y-%b-%d_%02Hh%02Mm%02S)
+APP_BIN=/app/demo-binary
 
 mkdir -p logs
 exec 2>&1 > >( stdbuf -oL tee logs/${0}.${DATE_VERSION}.log )
@@ -89,7 +90,8 @@ function build {
 
     ITAG=$(echo $IMAGE_TAG | sed 's?[/:_]?-?g')
     echo; echo "---- [docker] Checking $IMAGE_TAG version ----------"
-    docker run --rm --name versiontest-$ITAG mjbright/ckad-demo:1 --version |&
+    docker rm --force name versiontest-$ITAG 2>/dev/null
+    docker run --rm --name versiontest-$ITAG mjbright/ckad-demo:1 $APP_BIN --version |&
         grep $DATE_VERSION || die "Bad version != $DATE_VERSION"
 
     echo; echo "---- [docker] Testing  $IMAGE_TAG ----------"
@@ -117,7 +119,8 @@ function test_kubernetes_images {
     # Don't want --image-pull-policy '' as this will force pull from .... docker hub!!
 
     echo; echo "---- [kubernetes] Checking $IMAGE_TAG version ----------"
-    kubectl create job --image=$IMAGE_TAG $JOBNAME -- /app/demo-binary --version ||
+    kubectl delete job $JOBNAME 2>/dev/null
+    TIME kubectl create job --image=$IMAGE_TAG $JOBNAME -- $APP_BIN --version ||
 	    die "Failed to create job <$JOBNAME>"
     while ! kubectl get jobs/$JOBNAME | grep "1/1"; do
         echo "Waiting for job to complete ..."; sleep 1;
@@ -273,15 +276,11 @@ function build_and_push_tags {
             PORT=80
 
             IMAGE="${REPO}:${TAG}"
-            #CMD="/app/demo-binary --listen :$PORT -l 10 -r 10 -i $IMAGE"
-            #CMD="['/app/demo-binary','--listen',':$PORT','-l','$LIVE','-r','$READY','-i','$IMAGE']"
-            CMD="['--listen',':$PORT','-l','$LIVE','-r','$READY','-i','$IMAGE']"
+            CMD="[\"$APP_BIN\",\"--listen\",\":$PORT\",\"-l\",\"$LIVE\",\"-r\",\"$READY\"]"
             build_and_push $IMAGE scratch $PORT $CMD
 
             IMAGE="${REPO}:alpine${TAG}"
-            #CMD="/app/demo-binary --listen :$PORT -l 10 -r 10 -i $IMAGE"
-            #CMD="['/app/demo-binary','--listen',':$PORT','-l','$LIVE','-r','$READY','-i','$IMAGE']"
-            CMD="['--listen',':$PORT','-l','$LIVE','-r','$READY','-i','$IMAGE']"
+            CMD="[\"$APP_BIN\",\"--listen\",\":$PORT\",\"-l\",\"$LIVE\",\"-r\",\"$READY\"]"
             build_and_push $IMAGE alpine  $PORT $CMD
 
             ## IMAGE="${REPO}:bad${TAG}"
