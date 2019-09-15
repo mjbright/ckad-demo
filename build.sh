@@ -40,8 +40,8 @@ function check_build {
     ls -alh demo-binary
 
     echo; echo "---- Checking binary version ----------"
-    ./demo-binary --version |&
-        grep $DATE_VERSION || die "Bad version != $DATE_VERSION"
+    VERSION=$(./demo-binary --version 2>&1)
+    echo $VERSION | grep $DATE_VERSION || die "Bad version '$DATE_VERSION' not found in '$VERSION'"
 
     echo; echo "---- Testing  binary ----------"
     LISTEN=127.0.0.1:8080
@@ -105,8 +105,8 @@ function build {
     ITAG=$(echo $IMAGE_TAG | sed 's?[/:_]?-?g')
     echo; echo "---- [docker] Checking $IMAGE_TAG version ----------"
     docker rm --force name versiontest-$ITAG 2>/dev/null
-    docker run --rm --name versiontest-$ITAG mjbright/ckad-demo:1 $APP_BIN --version |&
-        grep $DATE_VERSION || die "Bad version != $DATE_VERSION"
+    VERSION=$(docker run --rm --name versiontest-$ITAG $IMAGE_TAG $APP_BIN --version 2>&1)
+    echo $VERSION | grep $DATE_VERSION || die "Bad version '$DATE_VERSION' not found in '$VERSION'"
 
     echo; echo "---- [docker] Testing  $IMAGE_TAG ----------"
     let DELAY=LIVE+READY
@@ -140,8 +140,8 @@ function test_kubernetes_images {
 
     echo; echo "---- [kubernetes] Checking $IMAGE_TAG version ----------"
     kubectl delete job $JOBNAME 2>/dev/null
-    TIME kubectl create job --image=$IMAGE_TAG $JOBNAME -- $APP_BIN --version ||
-	    die "Failed to create job <$JOBNAME>"
+    kubectl create job --image=$IMAGE_TAG $JOBNAME -- $APP_BIN --version || die "Failed to create job <$JOBNAME>"
+
     MAX_LOOPS=10
     while ! kubectl get jobs/$JOBNAME | grep "1/1"; do
         let MAX_LOOPS=MAX_LOOPS-1; [ $MAX_LOOPS -eq 0 ] && die "Stopping ..."
@@ -149,9 +149,10 @@ function test_kubernetes_images {
 
     done
 
-    kubectl logs jobs/$JOBNAME |& grep $DATE_VERSION || { 
+    VERSION=$(kubectl logs jobs/$JOBNAME |& grep -i version | tail -1)
+    echo $VERSION | grep $DATE_VERSION || { 
         kubectl delete jobs/$JOBNAME;
-        die "Bad version != $DATE_VERSION";
+        die "Bad version '$DATE_VERSION' not found in '$VERSION'"
     }
     kubectl delete jobs/$JOBNAME
 
