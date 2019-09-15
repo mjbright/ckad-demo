@@ -285,7 +285,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 		networkInfo, d,
 	        msg)
 
-            fmt.Fprintf(w, d + p1 + "\n")
+            fmt.Fprintf(w, p1 + "\n")
 
 	    return
 	}
