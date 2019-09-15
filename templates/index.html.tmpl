@@ -21,8 +21,8 @@
 
             <h1 class="lsf title">{{ .Message }}</h1>
 
-            <h2 class="lsf info">Served from <strong>{{ .Hostname }}</strong></h2>
-            <h3 class="lsf info">Using image {{ .Image }}</h3>
+            <h2 class="lsf info">Served from {{ .Hosttype }} <strong>{{ .Hostname }}</strong></h2>
+            <h3 class="lsf info">{{ .UsingImage }}</h3>
 
             {{ if ne .NetworkInfo "" }}
                 <h3 class="lsf info">Served from network:{{ .NetworkInfo }}</h3>

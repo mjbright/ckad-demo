@@ -65,9 +65,10 @@ type (
 	Content struct {
 		Title       string
 		Hostname    string
+		Hosttype    string
 		Message     string
 		PNG         string
-		Image       string
+		UsingImage  string
 		NetworkInfo string
 		RequestPP   string
 	}
@@ -209,9 +210,9 @@ func index(w http.ResponseWriter, r *http.Request) {
             os.Exit(3)
 	}
 
-	hostname, err := os.Hostname()
+	hostName, err := os.Hostname()
 	if err != nil {
-		hostname = "unknown"
+		hostName = "unknown"
 	}
 
         // Get user-agent: if text-browser, e.g. wget/curl/httpie/lynx/elinks return ascii-text image:
@@ -233,9 +234,24 @@ func index(w http.ResponseWriter, r *http.Request) {
         // if CaseInsensitiveContains(__IMAGE_VERSION__, "bad") ||
         // }
 
+	hostType := ""
+	imageInfo := ""
+	htmlPageTitle := ""
+	msg := ""
+        if message != "" { msg = "'" + message + "'" }
+
+	if __IMAGE_NAME_VERSION__ == "" {
+            hostType = "host"
+	    htmlPageTitle = msg
+	} else {
+            hostType = "container"
+	    imageInfo = "[image " + __IMAGE_NAME_VERSION__ + "]"
+	    htmlPageTitle = msg + " " + imageInfo
+	}
+
         if CaseInsensitiveContains(userAgent, "wget") ||
             CaseInsensitiveContains(userAgent, "curl") ||
-            CaseInsensitiveContains(userAgent, "httpie") ||
+            CaseInsensitiveContains(userAgent, "http") ||
             CaseInsensitiveContains(userAgent, "links") ||
             CaseInsensitiveContains(userAgent, "lynx") {
             w.Header().Set("Content-Type", "text/txt")
@@ -255,44 +271,21 @@ func index(w http.ResponseWriter, r *http.Request) {
             from := r.RemoteAddr
             fwd := r.Header.Get("X-Forwarded-For")
 
+            d := " "
 	    if multilineOP {
 	        w.Write([]byte(content))
+                d = "\n"
             }
 
-            p1 := ""
-	    if __IMAGE_NAME_VERSION__ == "" {
-                p1 = fmt.Sprintf("Served from host %s%s[%s]%s", colour_me_yellow, hostname, myIP, colour_me_normal)
-	    } else {
-                p1 = fmt.Sprintf("Served from container %s%s[image %s][%s]%s", colour_me_yellow, hostname, __IMAGE_NAME_VERSION__, myIP, colour_me_normal)
-	    }
-            //p1 := fmt.Sprintf("Served from container %s%s[%s]%s", colour_me_yellow, hostname, myIP, colour_me_normal)
-            p2 := ""
-            if fwd != "" {
-                p2 = fmt.Sprintf("Request from %s [%s]", from, fwd)
-            } else {
-                p2 = fmt.Sprintf("Request from %s", from)
-            }
-            p3 := ""
-            if networkInfo != "" {
-                p3 = fmt.Sprintf("%s ", networkInfo)
-	        if multilineOP {
-                    p3 = p3 + "\n"
-                }
-            }
+            if fwd != "" { fwd=" [" + fwd + "]" }
 
-	    if multilineOP {
-                if message != "" { fmt.Fprintf(w, "message\n"); }
-                fmt.Fprintf(w, "\n")
-                fmt.Fprintf(w, p1)
-                fmt.Fprintf(w, "\n")
-                fmt.Fprintf(w, p2)
-                fmt.Fprintf(w, "\n")
-                fmt.Fprintf(w, p3)
-                fmt.Fprintf(w, "\n")
-            } else {
-                if message != "" { p1 = message + " " + p1; }
-                fmt.Fprintf(w, p1 + " " + p2 + " " + p3 + "\n")
-            }
+	    p1 := fmt.Sprintf("Served from %s %s%s%s<%s>%s%s" + "Request from %s%s%s" + "%s%s" + "%s",
+	        hostType, colour_me_yellow, hostName, imageInfo, myIP, colour_me_normal, d,
+		from,fwd, d,
+		networkInfo, d,
+	        msg)
+
+            fmt.Fprintf(w, d + p1 + "\n")
 
 	    return
 	}
@@ -303,26 +296,25 @@ func index(w http.ResponseWriter, r *http.Request) {
         //
         templateFile := "templates/index.html.tmpl"
 
-	t, err := loadTemplate(templateFile)
+	template, err := loadTemplate(templateFile)
 	if err != nil {
-		log.Printf("error loading template from %s: %s\n", templateFile, err)
-		return
+            log.Printf("error loading template from %s: %s\n", templateFile, err)
+            return
 	}
 
-	title := message + "[image: " + __IMAGE_NAME_VERSION__ + "]"
-
 	cnt := &Content{
-		Title:    title,
-		Hostname: hostname,
+		Title:    htmlPageTitle,
+		Hosttype: hostType,
+		Hostname: hostName,
 		Message:  message,
 		PNG:      logo_path,
-		Image:    __IMAGE_NAME_VERSION__,
+		UsingImage: imageInfo,
 		NetworkInfo:  networkInfo,
 		RequestPP:  requestPP,
         }
 
         // apply Context values to template
-	t.Execute(w, cnt)
+	template.Execute(w, cnt)
 }
 
 func getNetworkInfo() string {
