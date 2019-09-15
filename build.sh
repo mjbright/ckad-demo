@@ -15,14 +15,18 @@ ln -s $LOG $LOG_LINK
 exec 2>&1 > >( stdbuf -oL tee $LOG )  
 
 mkdir -p logs
-exec 2>&1 > >( stdbuf -oL tee logs/${0}.${DATE_VERSION}.log )
 
 # -- Functions: --------------------------------------------------------
 
 function die {
     echo "$0: die - $*" >&2
+    for i in 0 1 2 3 4 5 6 7 8 9 10;do
+        CALLER_INFO=`caller $i`
+	[ -z "$CALLER_INFO" ] && break
+	echo "    Line: $CALLER_INFO" >&2
+    done
     exit 1
-}
+}          
 
 function check_build {
     SRC_GO=$1; shift
