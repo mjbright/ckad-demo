@@ -219,6 +219,10 @@ func index(w http.ResponseWriter, r *http.Request) {
         //
         userAgent := r.Header.Get("User-Agent")
 
+	// Enable/disable headers:
+        if r.URL.Path == "/headers" { headers := true }
+        if r.URL.Path == "/no-headers" { headers := false }
+
         multilineOP := (r.URL.Path != "/1line") && (r.URL.Path != "/1l") && (r.URL.Path != "/1")
 
         networkInfo := ""
