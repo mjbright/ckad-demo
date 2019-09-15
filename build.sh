@@ -88,11 +88,11 @@ function build {
     [ "$TEMPLATE_CMD" = "CMD" ] && die "Missing command in <$TEMPLATE_CMD>"
 
     ITAG=$(echo $IMAGE_TAG | sed 's?[/:_]?-?g')
-    echo; echo "---- Checking $IMAGE_TAG version ----------"
+    echo; echo "---- [docker] Checking $IMAGE_TAG version ----------"
     docker run --rm --name versiontest-$ITAG mjbright/ckad-demo:1 --version |&
         grep $DATE_VERSION || die "Bad version != $DATE_VERSION"
 
-    echo; echo "---- Testing  $IMAGE_TAG ----------"
+    echo; echo "---- [docker] Testing  $IMAGE_TAG ----------"
     CONTAINERNAME=buildtest-$ITAG
     docker run --rm -d --name $CONTAINERNAME -p 8181:$EXPOSE_PORT $IMAGE_TAG
     CONTAINERID=$(docker ps -ql)
@@ -115,27 +115,38 @@ function test_kubernetes_images {
     # Prints to log, but difficult to manage, keeps restarting Pod
     #kubectl run --rm --image-pull-policy '' --generator=run-pod/v1 --image=mjbright/ckad-demo:1 testerckad -it -- -v -die
     # Don't want --image-pull-policy '' as this will force pull from .... docker hub!!
-    kubectl create job --image=$IMAGE_TAG $JOBNAME -- /app/demo-binary --version
-    #while ! kubectl get jobs/kubejobtest-mjbright-ckad-demo-1 | grep "1/1"; do echo X; sleep 1; done
-    #sleep 1
+
+    echo; echo "---- [kubernetes] Checking $IMAGE_TAG version ----------"
+    kubectl create job --image=$IMAGE_TAG $JOBNAME -- /app/demo-binary --version ||
+	    die "Failed to create job <$JOBNAME>"
     while ! kubectl get jobs/$JOBNAME | grep "1/1"; do
         echo "Waiting for job to complete ..."; sleep 1;
     done
-    #kubectl get jobs/$JOBNAME | grep "1/1" || sleep 10
+
     kubectl logs jobs/$JOBNAME |& grep $DATE_VERSION || { 
         kubectl delete jobs/$JOBNAME;
         die "Bad version != $DATE_VERSION";
     }
     kubectl delete jobs/$JOBNAME
 
+    echo; echo "---- [kubernetes] Testing  $IMAGE_TAG ----------"
     #kubectl run --rm --generator=run-pod/v1 --image=mjbright/ckad-demo:1 testerckad -it -- --listen 127.0.0.1:80
     PODNAME=kubetest-$ITAG
     kubectl run --generator=run-pod/v1 --image=$IMAGE_TAG $PODNAME -- --listen 127.0.0.1:80
+
+    while ! kubectl get pods/$PODNAME | grep "Running"; do
+        echo "Waiting for pod to reach Running state ..."; sleep 1;
+    done
+
     kubectl port-forward pod/$PODNAME 8181:80 &
     PID=$!
+    sleep 2
 
-    curl -sL 127.0.0.1:8181/1 ||
+    curl -sL 127.0.0.1:8181/1 || {
+        kill -9 $PID
+        kubectl delete pod/$PODNAME
         die "Failed to interrogate pod <$PODNAME> from image <$IMAGE_TAG>"
+    }
 
     # NEED TO KILL POD
     kill -9 $PID
