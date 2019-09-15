@@ -7,6 +7,13 @@
 DATE_VERSION=$(date +%Y-%b-%d_%02Hh%02Mm%02S)
 APP_BIN=/app/demo-binary
 
+LOG=$PWD/logs/${0}.${DATE_VERSION}.log
+LOG_LINK=$PWD/logs/${0}.log
+
+[ -h $LOG_LINK] && rm $LOG_LINK
+ln -s $LOG $LOG_LINK
+exec 2>&1 > >( stdbuf -oL tee $LOG )  
+
 mkdir -p logs
 exec 2>&1 > >( stdbuf -oL tee logs/${0}.${DATE_VERSION}.log )
 
