@@ -88,6 +88,9 @@ function build {
     echo "CMD=<$TEMPLATE_CMD>"
     [ "$TEMPLATE_CMD" = "CMD" ] && die "Missing command in <$TEMPLATE_CMD>"
 
+    echo; echo "---- [docker] Checking $IMAGE_TAG command ----------"
+    docker history --no-trunc $IMAGE_TAG | awk '/CMD / { FS="CMD"; $0=$0; print "CMD",$2; } '
+
     ITAG=$(echo $IMAGE_TAG | sed 's?[/:_]?-?g')
     echo; echo "---- [docker] Checking $IMAGE_TAG version ----------"
     docker rm --force name versiontest-$ITAG 2>/dev/null
