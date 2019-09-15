@@ -98,6 +98,9 @@ function build {
         grep $DATE_VERSION || die "Bad version != $DATE_VERSION"
 
     echo; echo "---- [docker] Testing  $IMAGE_TAG ----------"
+    let DELAY=LIVE+READY
+    [ $DELAY -ne 0 ] && { echo "Waiting for live/ready $LIVE/$READY secs"; sleep $DELAY; }
+
     CONTAINERNAME=buildtest-$ITAG
     docker run --rm -d --name $CONTAINERNAME -p 8181:$EXPOSE_PORT $IMAGE_TAG
     CONTAINERID=$(docker ps -ql)
@@ -125,8 +128,11 @@ function test_kubernetes_images {
     kubectl delete job $JOBNAME 2>/dev/null
     TIME kubectl create job --image=$IMAGE_TAG $JOBNAME -- $APP_BIN --version ||
 	    die "Failed to create job <$JOBNAME>"
+    MAX_LOOPS=10
     while ! kubectl get jobs/$JOBNAME | grep "1/1"; do
-        echo "Waiting for job to complete ..."; sleep 1;
+        let MAX_LOOPS=MAX_LOOPS-1; [ $MAX_LOOPS -eq 0 ] && die "Stopping ..."
+        echo "Waiting for job to complete ..."; sleep 2;
+
     done
 
     kubectl logs jobs/$JOBNAME |& grep $DATE_VERSION || { 
@@ -136,11 +142,16 @@ function test_kubernetes_images {
     kubectl delete jobs/$JOBNAME
 
     echo; echo "---- [kubernetes] Testing  $IMAGE_TAG ----------"
+    let DELAY=LIVE+READY
+    [ $DELAY -ne 0 ] && { echo "Waiting for live/ready $LIVE/$READY secs"; sleep $DELAY; }
+
     #kubectl run --rm --generator=run-pod/v1 --image=mjbright/ckad-demo:1 testerckad -it -- --listen 127.0.0.1:80
     PODNAME=kubetest-$ITAG
     kubectl run --generator=run-pod/v1 --image=$IMAGE_TAG $PODNAME -- --listen 127.0.0.1:80
 
+    MAX_LOOPS=10
     while ! kubectl get pods/$PODNAME | grep "Running"; do
+        let MAX_LOOPS=MAX_LOOPS-1; [ $MAX_LOOPS -eq 0 ] && die "Stopping ..."
         echo "Waiting for pod to reach Running state ..."; sleep 1;
     done
 
@@ -336,8 +347,8 @@ LIVE=0
 #READINESS_DELAY=0
 READY=0
 
-LIVE=03
-READY=03
+#LIVE=03
+#READY=03
 
 build_and_push_tags
 
