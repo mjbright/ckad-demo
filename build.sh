@@ -102,6 +102,9 @@ function build {
     [ $DELAY -ne 0 ] && { echo "Waiting for live/ready $LIVE/$READY secs"; sleep $DELAY; }
 
     CONTAINERNAME=buildtest-$ITAG
+    docker rm --force name $CONTAINERNAME 2>/dev/null
+    # Use default command:
+    #docker run --rm -d --name $CONTAINERNAME -p 8181:$EXPOSE_PORT $IMAGE_TAG $APP_BIN
     docker run --rm -d --name $CONTAINERNAME -p 8181:$EXPOSE_PORT $IMAGE_TAG
     CONTAINERID=$(docker ps -ql)
     curl -sL 127.0.0.1:8181/1 ||
@@ -147,7 +150,10 @@ function test_kubernetes_images {
 
     #kubectl run --rm --generator=run-pod/v1 --image=mjbright/ckad-demo:1 testerckad -it -- --listen 127.0.0.1:80
     PODNAME=kubetest-$ITAG
-    kubectl run --generator=run-pod/v1 --image=$IMAGE_TAG $PODNAME -- --listen 127.0.0.1:80
+    kubectl delete pod $PODNAME 2>/dev/null
+    # Use default command:
+    #TIME kubectl run --generator=run-pod/v1 --image=$IMAGE_TAG $PODNAME $APP_BIN -- --listen 127.0.0.1:80
+    TIME kubectl run --generator=run-pod/v1 --image=$IMAGE_TAG $PODNAME
 
     MAX_LOOPS=10
     while ! kubectl get pods/$PODNAME | grep "Running"; do
