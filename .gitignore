@@ -1,9 +1,15 @@
 Dockerfile
 demo-binary
+
 docker-demo/
 tmp/
+
 dockerhub-v2-api-user.sh
+
 *.log
 *.bak
 logs/
+
 main.build.go
+
+docker_asciitext.txt
