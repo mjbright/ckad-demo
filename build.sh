@@ -73,7 +73,7 @@ function build {
     template_go_src main.go main.build.go
 
     [ "$TEMPLATE_CMD" = "CMD" ] && die "build: Missing command in <$TEMPLATE_CMD>"
-    write_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT "$TEMPLATE_CMD"
+    template_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT "$TEMPLATE_CMD"
 
     case "$FROM_IMAGE" in
         "scratch") STAGE1_IMAGE="mjbright/demo-static-binary";;
@@ -189,14 +189,41 @@ function test_kubernetes_images {
 
 }
 
-function write_dockerfile {
+function template_dockerfile {
+    echo "FN: template_dockerfile $*"
+    # e.g. template_dockerfile mjbright/ckad-demo:1 scratch 80 ["/app/demo-binary","--listen",":80","-l","0","-r","0"]
     IMAGE_TAG=$1; shift
     FROM_IMAGE=$1; shift
     EXPOSE_PORT=$1; shift
     TEMPLATE_CMD="$*"; set --
 
+    PICTURE_TYPE=""
+    case $IMAGE_TAG in
+        mjbright/docker-demo*) PICTURE_TYPE="docker";;
+        mjbright/k8s-demo*)    PICTURE_TYPE="kubernetes";;
+        mjbright/ckad-demo*)   PICTURE_TYPE="kubernetes";;
+        *)   die "Unknown image base: <$IMAGE_TAG>";;
+    esac
+
+    COLOUR=""
+    case $IMAGE_TAG in
+        *:1) COLOUR="blue";;
+        *:2) COLOUR="red";;
+        *:3) COLOUR="green";;
+        *:4) COLOUR="cyan";;
+        *:5) COLOUR="yellow";;
+        *:6) COLOUR="white";;
+        *)   die "Unknown image tag: <$IMAGE_TAG>";;
+    esac
+
+    PICTURE_BASE="${PICTURE_TYPE}_${COLOUR}"
+    PICTURE_PATH_BASE="static/img/${PICTURE_BASE}"
+
+    [ ! -f "${PICTURE_PATH_BASE}.png" ] && die "No such file <${PICTURE_PATH_BASE}.png>"
+    [ ! -f "${PICTURE_PATH_BASE}.txt" ] && die "No such file <${PICTURE_PATH_BASE}.txt>"
+
     #echo "EXPOSE_PORT=$EXPOSE_PORT"
-    [ "$TEMPLATE_CMD" = "CMD" ] && die "write_dockerfile: Missing command in <$TEMPLATE_CMD>"
+    [ "$TEMPLATE_CMD" = "CMD" ] && die "template_dockerfile: Missing command in <$TEMPLATE_CMD>"
 
     STATIC_STAGE1_BUILD="CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags '-w' -o demo-binary main.build.go"
     DYNAMIC_STAGE1_BUILD="CGO_ENABLED=0 go build -a -o demo-binary main.build.go"
@@ -207,11 +234,13 @@ function write_dockerfile {
         *)  die "Unknown FROM_IMAGE type <$FROM_IMAGE>";;
     esac
 
-    sed  < Dockerfile.tmpl > Dockerfile \
+    sed  < templates/Dockerfile.tmpl > Dockerfile \
         -e "s/__FROM_IMAGE__/$FROM_IMAGE/" \
         -e "s/__EXPOSE_PORT__/$EXPOSE_PORT/" \
         -e "s/__STAGE1_BUILD__/$STAGE1_BUILD/" \
         -e "s?__TEMPLATE_CMD__?$TEMPLATE_CMD?" \
+        -e "s?__PICTURE_BASE__?$PICTURE_BASE?" \
+        -e "s?__PICTURE_PATH_BASE__?$PICTURE_PATH_BASE?" \
 
     grep __ Dockerfile && die "Uninstantiated variables in Dockerfile"
     mkdir -p tmp
@@ -227,7 +256,7 @@ function basic_2stage_build {
     EXPOSE_PORT=$1; shift
     TEMPLATE_CMD="$*"; set --
 
-    write_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT "$TEMPLATE_CMD"
+    template_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT "$TEMPLATE_CMD"
     docker build -t $IMAGE_TAG .
 }
 
@@ -292,12 +321,15 @@ function template_go_src {
     BUILD_SRC=$1; shift
 
     sed < ${SRC} > ${BUILD_SRC}  \
-           -e "s/TEMPLATE_DATE_VERSION/$DATE_VERSION/" \
-           -e "s?TEMPLATE_IMAGE_NAME_VERSION?$IMAGE_NAME_VERSION?" \
-           -e "s/TEMPLATE_IMAGE_VERSION/$IMAGE_VERSION/" \
+           -e "s/__DATE_VERSION__/$DATE_VERSION/" \
+           -e "s?__IMAGE_NAME_VERSION__?$IMAGE_NAME_VERSION?" \
+           -e "s/__IMAGE_VERSION__/$IMAGE_VERSION/" \
+           -e "s?__PICTURE_PATH_BASE__?$PICTURE_PATH_BASE?" \
 
     ls -altr ${SRC} ${BUILD_SRC}
     [ ! -s ${BUILD_SRC} ] && die "Empty ${BUILD_SRC} !!"
+
+    grep __ ${BUILD_SRC} && die "Uninstantiated variables in '${BUILD_SRC}'"
 }
 
 function build_and_push_tags {

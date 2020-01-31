@@ -37,12 +37,12 @@ var (
 	// -- defaults: to be overridden by env/cli/cm ------
 	message            = ""
 
-	__IMAGE_NAME_VERSION__ = "TEMPLATE_IMAGE_NAME_VERSION"
-	__IMAGE_VERSION__      = "TEMPLATE_IMAGE_VERSION"
-	__DATE_VERSION__       = "TEMPLATE_DATE_VERSION"
+	IMAGE_NAME_VERSION = "__IMAGE_NAME_VERSION__"
+	IMAGE_VERSION      = "__IMAGE_VERSION__"
+	DATE_VERSION       = "__DATE_VERSION__"
 
-        logo_base_path = "static/img/kubernetes_blue"
-        logo_path     = "static/img/kubernetes_blue.txt"
+        logo_base_path = "__PICTURE_PATH_BASE__"
+        logo_path      = logo_base_path + ".txt"
 
 	mux        = http.NewServeMux()
 	listenAddr string = ":80"
@@ -235,7 +235,7 @@ func index(w http.ResponseWriter, r *http.Request) {
         }
 
         // TOOD: bad
-        // if CaseInsensitiveContains(__IMAGE_VERSION__, "bad") ||
+        // if CaseInsensitiveContains(IMAGE_VERSION, "bad") ||
         // }
 
 	hostType := ""
@@ -244,12 +244,12 @@ func index(w http.ResponseWriter, r *http.Request) {
 	msg := ""
         if message != "" { msg = "'" + message + "'" }
 
-	if __IMAGE_NAME_VERSION__ == "" {
+	if IMAGE_NAME_VERSION == "" {
             hostType = "host"
 	    htmlPageTitle = msg
 	} else {
             hostType = "container"
-	    imageInfo = "[image " + __IMAGE_NAME_VERSION__ + "]"
+	    imageInfo = "[image " + IMAGE_NAME_VERSION + "]"
 	    htmlPageTitle = msg + " " + imageInfo
 	}
 
@@ -260,7 +260,7 @@ func index(w http.ResponseWriter, r *http.Request) {
             CaseInsensitiveContains(userAgent, "lynx") {
             w.Header().Set("Content-Type", "text/txt")
 
-            logo_path  =  logo_base_path + "txt"
+            logo_path  =  logo_base_path + ".txt"
 
             fmt.Fprintf(w, "%s", formattedReq)
             var content []byte
@@ -297,7 +297,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 	    return
 	}
 
-        logo_path  =  logo_base_path + "png"
+        logo_path  =  logo_base_path + ".png"
 
 	// else return html as normal ...
         //
@@ -360,42 +360,8 @@ func ping(w http.ResponseWriter, r *http.Request) {
 }
 
 func showVersion(w http.ResponseWriter, r *http.Request) {
-	resp := fmt.Sprintf("version: %s [%s]\n", __DATE_VERSION__, __IMAGE_NAME_VERSION__)
+	resp := fmt.Sprintf("version: %s [%s]\n", DATE_VERSION, IMAGE_NAME_VERSION)
 	w.Write([]byte(resp))
-}
-
-func setLogoPath() string {
-    logo_base_path     = "static/img/kubernetes_"
-
-    if CaseInsensitiveContains(__IMAGE_NAME_VERSION__, "docker-demo") {
-        logo_base_path     = "static/img/docker_"
-    }
-    if CaseInsensitiveContains(__IMAGE_NAME_VERSION__, "k8s-demo") {
-        logo_base_path     = "static/img/kubernetes_"
-    }
-    if CaseInsensitiveContains(__IMAGE_NAME_VERSION__, "ckad-demo") {
-        logo_base_path     = "static/img/kubernetes_"
-    }
-
-    if CaseInsensitiveContains(__IMAGE_VERSION__, "1") {
-        logo_base_path     +=  "blue."
-    } else if CaseInsensitiveContains(__IMAGE_VERSION__, "2") {
-        logo_base_path     +=  "red."
-    } else if CaseInsensitiveContains(__IMAGE_VERSION__, "3") {
-        logo_base_path     +=  "green."
-    } else if CaseInsensitiveContains(__IMAGE_VERSION__, "4") {
-        logo_base_path     +=  "cyan."
-    } else if CaseInsensitiveContains(__IMAGE_VERSION__, "5") {
-        logo_base_path     +=  "yellow."
-    } else if CaseInsensitiveContains(__IMAGE_VERSION__, "6") {
-        logo_base_path     +=  "white."
-    } else {
-        logo_base_path     +=  "blue."
-    }
-
-    logo_path = logo_base_path +  "txt" 
-
-    return logo_path
 }
 
 // -----------------------------------
@@ -419,8 +385,8 @@ func main() {
 	f.IntVar(&readinessSecs, "ready",  0,   "readiness delay (0 sec)")
 	f.IntVar(&readinessSecs, "r",      0,   "readiness delay (0 sec)")
 
-	//f.StringVar(&__IMAGE_NAME_VERSION__, "image", __IMAGE_NAME_VERSION__, "image")
-	//f.StringVar(&__IMAGE_NAME_VERSION__, "i", __IMAGE_NAME_VERSION__, "image")
+	//f.StringVar(&IMAGE_NAME_VERSION, "image", IMAGE_NAME_VERSION, "image")
+	//f.StringVar(&IMAGE_NAME_VERSION, "i", IMAGE_NAME_VERSION, "image")
 
 	f.StringVar(&message,            "message", "", "message")
 
@@ -447,7 +413,7 @@ func main() {
         // fmt.Println("VisitAll() after Parse()") f.VisitAll(visitor)
 
         if verbose || version {
-            log.Printf("%s Version: %s\n", os.Args[0], __DATE_VERSION__)
+            log.Printf("%s Version: %s\n", os.Args[0], DATE_VERSION)
 
 	    if version {
                 os.Exit(0)
@@ -500,7 +466,6 @@ func main() {
             os.Exit(3)
 	}
 
-	logo_path = setLogoPath()
 	if verbose {
             log.Printf("Default ascii art <%s>\n", logo_path)
         }
