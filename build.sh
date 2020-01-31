@@ -10,7 +10,7 @@ APP_BIN=/app/demo-binary
 LOG=$PWD/logs/${0}.${DATE_VERSION}.log
 LOG_LINK=$PWD/logs/${0}.log
 
-[ -h $LOG_LINK] && rm $LOG_LINK
+[ -h $LOG_LINK ] && rm $LOG_LINK
 ln -s $LOG $LOG_LINK
 exec 2>&1 > >( stdbuf -oL tee $LOG )  
 
