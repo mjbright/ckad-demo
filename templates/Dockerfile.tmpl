@@ -1,5 +1,4 @@
 
-
 # -- build stage ---------------------------------------------
 FROM golang:alpine AS build-env
 
@@ -20,26 +19,17 @@ RUN ls -al  /src/demo-binary; ls -alh /src/demo-binary; /src/demo-binary --versi
 FROM __FROM_IMAGE__ AS runtime-image
 
 ADD static/css /app/static/css
-#USED? ADD static/font /app/static/font
-
-# ADD all images, they're tiny!!
-#ADD static/img/__PICTURE_BASE__.png /app/static/img/
-#ADD static/img/__PICTURE_BASE__.txt /app/static/img/
 ADD static/img /app/static/img
 ADD static/index.html /app/static/index.html
-#USED? ADD static/text /app/static/text
-#USED? ADD static    /app/static
+#UNUSED - ADD static/font /app/static/font
+#UNUSED - ADD static/text /app/static/text
 
 ADD templates /app/templates
 
 WORKDIR /app
 COPY    --from=build-env /src/demo-binary /app/
 
-# No shell, ls available in scratch image:
-#RUN ls -al  /app/demo-binary; ls -alh /app/demo-binary; /app/demo-binary -v -die; exit 0
-
 # No shell, available in scratch image so use exec format:
-#RUN /app/demo-binary --version
 RUN ["/app/demo-binary", "--version"]
 
 EXPOSE __EXPOSE_PORT__
@@ -50,6 +40,6 @@ EXPOSE __EXPOSE_PORT__
 #   CMD __TEMPLATE_CMD__
 #   Where CMD is "--listen :$PORT -l 10 -r 10"
 
-# With this form, we can overwrite the command:
+# With this form, we can easily overwrite the command:
 CMD __TEMPLATE_CMD__
 
