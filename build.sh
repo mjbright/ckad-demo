@@ -2,6 +2,8 @@
 
 # TODO: test docker images before push
 
+VERBOSE=0
+
 # Log output:
 
 DATE_VERSION=$(date +%Y-%b-%d_%02Hh%02Mm%02S)
@@ -18,7 +20,7 @@ mkdir -p logs
 
 # Detect if running under WSL, if so use nocache (for now)
 DOCKER_BUILD="docker build"
-[ ! -z "$WSLENV" ] && DOCKER_BUILD="nocache docker build"
+#[ ! -z "$WSLENV" ] && DOCKER_BUILD="nocache docker build"
 
 # -- Functions: --------------------------------------------------------
 
@@ -65,7 +67,8 @@ function check_build {
 
 # Properly cached 2stage_build:
 #   See https://pythonspeed.com/articles/faster-multi-stage-builds/
-function build {
+function docker_build {
+    [ $VERBOSE -ne 0 ] && echo "FN: docker_build $*"
     IMAGE_TAG=$1; shift
     FROM_IMAGE=$1; shift
     EXPOSE_PORT=$1; shift
@@ -79,7 +82,7 @@ function build {
     template_go_src main.go main.build.go
 
     [ "$TEMPLATE_CMD" = "CMD" ] && die "build: Missing command in <$TEMPLATE_CMD>"
-    template_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT "$TEMPLATE_CMD"
+    template_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT "$TEMPLATE_CMD" $DATE_VERSION $IMAGE_NAME_VERSION $IMAGE_VERSION $PICTURE_PATH_BASE
 
     case "$FROM_IMAGE" in
         "scratch") STAGE1_IMAGE="mjbright/demo-static-binary";;
@@ -124,8 +127,8 @@ function build {
     #kubernetes_test_image
 
     # Push the new versions:
-    TIME docker push $STAGE1_IMAGE
-    TIME docker push $IMAGE_TAG
+    docker_push $STAGE1_IMAGE
+    docker_push $IMAGE_TAG
 }
 
 function docker_test_image {
@@ -243,6 +246,7 @@ function kubernetes_test_image {
 }
 
 function set_picture_paths {
+    [ $VERBOSE -ne 0 ] && echo "FN: set_picture_paths $*"
     IMAGE_TAG=$1; shift
 
     PICTURE_TYPE=""
@@ -279,12 +283,16 @@ function check_vars_set {
 }
 
 function template_dockerfile {
-    #echo "FN: template_dockerfile $*"
     # e.g. template_dockerfile mjbright/ckad-demo:1 scratch 80 ["/app/demo-binary","--listen",":80","-l","0","-r","0"]
+    [ $VERBOSE -ne 0 ] && echo "FN: template_dockerfile $*"
     IMAGE_TAG=$1; shift
     FROM_IMAGE=$1; shift
     EXPOSE_PORT=$1; shift
-    TEMPLATE_CMD="$*"; set --
+    TEMPLATE_CMD="$1"; shift #set --
+    DATE_VERSION=$1; shift
+    IMAGE_NAME_VERSION=$1; shift
+    IMAGE_VERSION=$1; shift
+    PICTURE_PATH_BASE=$1; shift
 
     #echo "EXPOSE_PORT=$EXPOSE_PORT"
     [ "$TEMPLATE_CMD" = "CMD" ] && die "template_dockerfile: Missing command in <$TEMPLATE_CMD>"
@@ -299,16 +307,22 @@ function template_dockerfile {
     esac
 
     check_vars_set FROM_IMAGE EXPOSE_PORT STAGE1_BUILD TEMPLATE_CMD
+    check_vars_set DATE_VERSION IMAGE_NAME_VERSION IMAGE_VERSION PICTURE_PATH_BASE
 
+    #echo "IMAGE_NAME_VERSION='$IMAGE_NAME_VERSION'"
     sed  < templates/Dockerfile.tmpl > Dockerfile \
         -e "s/__FROM_IMAGE__/$FROM_IMAGE/" \
         -e "s/__EXPOSE_PORT__/$EXPOSE_PORT/" \
         -e "s/__STAGE1_BUILD__/$STAGE1_BUILD/" \
+        -e "s/__DATE_VERSION__/$DATE_VERSION/" \
+        -e "s/__IMAGE_VERSION__/$IMAGE_VERSION/" \
         -e "s?__TEMPLATE_CMD__?$TEMPLATE_CMD?" \
+        -e "s?__PICTURE_PATH_BASE__?$PICTURE_PATH_BASE?" \
+        -e "s?__IMAGE_NAME_VERSION__?$IMAGE_NAME_VERSION?" \
 
-        #-e "s?__PICTURE_BASE__?$PICTURE_BASE?" \
-        #-e "s?__PICTURE_PATH_BASE__?$PICTURE_PATH_BASE?" \
+    [ $VERBOSE -ne 0 ] && grep ENV Dockerfile
 
+    [ ! -s Dockerfile ] && die "Empty Dockerfile"
     grep -v "^#" Dockerfile | grep __ && die "Uninstantiated variables in '${BUILD_SRC}'"
     mkdir -p tmp
 
@@ -318,6 +332,7 @@ function template_dockerfile {
 }
 
 function basic_2stage_build {
+    [ $VERBOSE -ne 0 ] && echo "FN: basic_2stage_build $*"
     IMAGE_TAG=$1; shift
     FROM_IMAGE=$1; shift
     EXPOSE_PORT=$1; shift
@@ -327,15 +342,21 @@ function basic_2stage_build {
     $DOCKER_BUILD -t $IMAGE_TAG .
 }
 
-function push {
-    IMAGE_TAG=$1; shift
-    FROM_IMAGE=$1; shift
+function docker_push {
+    [ $VERBOSE -ne 0 ] && echo "FN: docker_push $*"
+    local PUSH_IMAGE=$1; shift
+    #FROM_IMAGE=$1; shift
 
-    docker push $IMAGE_TAG 
+    TIME docker push $PUSH_IMAGE 
+    ALREADY=$(grep -c ": Layer already exists" $CMD_OP)
+    PUSHED=$(grep -c ": Pushed" $CMD_OP)
+    let LAYERS=ALREADY+PUSHED
+    echo "Pushed $PUSHED of $LAYERS layers"
 }
 
 function build_and_push {
     # build_and_push $IMAGE scratch $PORT $CMD
+    [ $VERBOSE -ne 0 ] && echo "FN: build_and_push $*"
     IMAGE_TAG=$1; shift
     FROM_IMAGE=$1; shift
     PORT=$1; shift
@@ -345,8 +366,9 @@ function build_and_push {
 
     #[ "$TEMPLATE_CMD" = "CMD" ] && die "build: Missing command in <$TEMPLATE_CMD>"
     echo $4
-    build $IMAGE_TAG $FROM_IMAGE $PORT $CMD
-    push  $IMAGE_TAG $FROM_IMAGE $PORT $CMD
+    echo "docker_build $IMAGE_TAG $FROM_IMAGE $PORT $CMD"
+    docker_build $IMAGE_TAG $FROM_IMAGE $PORT $CMD
+    #docker_push  $IMAGE_TAG # $FROM_IMAGE $PORT $CMD
 }
 
 # START: TIMER FUNCTIONS ================================================
@@ -400,6 +422,11 @@ function TIMER_hhmmss {
 function template_go_src {
     SRC=$1;       shift
     BUILD_SRC=$1; shift
+
+    cp -a $SRC $BUILD_SRC
+    grep -v "^#" ${BUILD_SRC} | grep __ && die "Uninstantiated variables in '${BUILD_SRC}'"
+    [ ! -s "$BUILD_SRC" ] && die "Empty source file '$BUILD_SRC'"
+    return
 
     check_vars_set DATE_VERSION IMAGE_NAME_VERSION IMAGE_VERSION PICTURE_PATH_BASE
 
@@ -458,6 +485,7 @@ TAGS=""
 while [ ! -z "$1" ]; do
     case $1 in
         [0-9]*)           TAGS+=" $1";;
+        --verbose|-v)     VERBOSE=1;;
         --tag|-t)         shift; TAGS=$1;;
         --all|-a)         TAGS=$ALL_TAGS; REPO_NAMES=$ALL_REPO_NAMES;;
         --all-tags|-at)   TAGS=$ALL_TAGS;;
@@ -480,6 +508,8 @@ docker login > ~/tmp/docker.login.op 2>&1 || {
     die "Failed to login to Docker Hub"
 }
 #kubectl get nodes || die "Failed to access cluster"
+
+TIME docker pull alpine:latest || true
 
 TIMER_START; START0_S=$START_S
 
