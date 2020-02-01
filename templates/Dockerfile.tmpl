@@ -21,8 +21,11 @@ FROM __FROM_IMAGE__ AS runtime-image
 
 ADD static/css /app/static/css
 #USED? ADD static/font /app/static/font
-ADD static/img/__PICTURE_BASE__.png /app/static/img/
-ADD static/img/__PICTURE_BASE__.txt /app/static/img/
+
+# ADD all images, they're tiny!!
+#ADD static/img/__PICTURE_BASE__.png /app/static/img/
+#ADD static/img/__PICTURE_BASE__.txt /app/static/img/
+ADD static/img /app/static/img
 ADD static/index.html /app/static/index.html
 #USED? ADD static/text /app/static/text
 #USED? ADD static    /app/static
