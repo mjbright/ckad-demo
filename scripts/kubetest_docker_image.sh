@@ -1,6 +1,10 @@
 
-POD_NAME=manualtest-mjbright-ckad-demo-a1
-EXT_PORT=8282
+let V=1
+
+die() {
+    echo "$0: die - $*" >&2
+    exit 1
+}
 
 press() {
     echo $*
@@ -10,7 +14,18 @@ press() {
     [ "$DUMMY" = "Q" ] && exit 0
 }
 
-kubectl run --generator=run-pod/v1 --image=mjbright/ckad-demo:alpine1 $POD_NAME
+if [ ! -z "$1" ]; then
+    case $1 in
+        [1-6]) V=$1;;
+        *) die "Unknown option <$1>";;
+    esac
+    shift
+fi
+
+POD_NAME=manualtest-mjbright-ckad-demo-a$V
+EXT_PORT=828$V
+
+kubectl run --generator=run-pod/v1 --image=mjbright/ckad-demo:alpine$V $POD_NAME
 
 #sleep 2
 #kubectl get pods
@@ -23,5 +38,7 @@ while [[ $(kubectl get pods -l $RUN_LABEL -o 'jsonpath={..status.conditions[?(@.
 kubectl get pods
 echo; echo "Now curl to 127.0.0.1:${EXT_PORT}"
 
-kubectl port-forward pod/$POD_NAME ${EXT_PORT}:80
+CMD="kubectl port-forward pod/$POD_NAME ${EXT_PORT}:80"
+echo $CMD
+$CMD
 
