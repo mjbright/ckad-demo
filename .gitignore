@@ -8,6 +8,7 @@ dockerhub-v2-api-user.sh
 
 *.log
 *.bak
+*.sw*
 logs/
 
 main.build.go
