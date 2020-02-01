@@ -32,6 +32,11 @@ COPY    --from=build-env /src/demo-binary /app/
 # No shell, available in scratch image so use exec format:
 RUN ["/app/demo-binary", "--version"]
 
+ENV DATE_VERSION="__DATE_VERSION__"
+ENV IMAGE_NAME_VERSION="__IMAGE_NAME_VERSION__"
+ENV IMAGE_VERSION="__IMAGE_VERSION__"
+ENV PICTURE_PATH_BASE="__PICTURE_PATH_BASE__"
+
 EXPOSE __EXPOSE_PORT__
 
 # With this form, we would need to override entrypoint if we want a shell (with alpine version):
