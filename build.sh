@@ -22,6 +22,9 @@ mkdir -p logs
 DOCKER_BUILD="docker build"
 #[ ! -z "$WSLENV" ] && DOCKER_BUILD="nocache docker build"
 
+STAGE1_STATIC_IMAGE="mjbright/demo-static-binary"
+STAGE1_DYNAMIC_IMAGE="mjbright/demo-dynamic-binary"
+
 # -- Functions: --------------------------------------------------------
 
 function die {
@@ -65,6 +68,42 @@ function check_build {
     echo "---- binary OK ----------------"
 }
 
+function set_build_vars {
+    case "$1" in
+        scratch|static)
+            STAGE1_IMAGE=$STAGE1_STATIC_IMAGE
+            BUILD_ENV_TARGET="build-env-static"
+            FROM_IMAGE=scratch
+            STAGE1_BUILD="CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags '-w' -o demo-binary main.build.go"
+            ;;
+        alpine|dynamic)
+            STAGE1_IMAGE=$STAGE1_DYNAMIC_IMAGE
+            BUILD_ENV_TARGET="build-env-dynamic"
+            FROM_IMAGE=alpine
+            STAGE1_BUILD="CGO_ENABLED=0 go build -a -o demo-binary main.build.go"
+            ;;
+        *) die "Bad build mode <$1>"
+            ;;
+    esac
+}
+
+function docker_build_static_base {
+    [ $VERBOSE -ne 0 ] && echo "FN: docker_build_static_base $*"
+    set_build_vars "static"
+    template_dockerfile "IMAGE_TAG" "$FROM_IMAGE" "EXPOSE_PORT" "TEMPLATE_CMD" "DATE_VERSION" "IMAGE_NAME_VERSION" "IMAGE_VERSION" "PICTURE_PATH_BASE" $BUILD_ENV_TARGET
+    TIME docker pull $STAGE1_IMAGE || true
+
+    # Build the compile stage:
+    TIME $DOCKER_BUILD --target $BUILD_ENV_TARGET --cache-from=$STAGE1_IMAGE --tag $STAGE1_IMAGE . || die "Build failed" 
+}
+
+function docker_build_dynamic_base {
+    [ $VERBOSE -ne 0 ] && echo "FN: docker_build_dynamic_base $*"
+    set_build_vars "dynamic"
+    template_dockerfile "IMAGE_TAG" "$FROM_IMAGE" "EXPOSE_PORT" "TEMPLATE_CMD" "DATE_VERSION" "IMAGE_NAME_VERSION" "IMAGE_VERSION" "PICTURE_PATH_BASE" $BUILD_ENV_TARGET
+    TIME docker pull $STAGE1_IMAGE || true
+}
+
 # Properly cached 2stage_build:
 #   See https://pythonspeed.com/articles/faster-multi-stage-builds/
 function docker_build {
@@ -78,27 +117,14 @@ function docker_build {
     IMAGE_VERSION=${IMAGE_TAG#*:}
 
     set_picture_paths $IMAGE_TAG
-
-    template_go_src main.go main.build.go
-
+    set_build_vars $FROM_IMAGE
     [ "$TEMPLATE_CMD" = "CMD" ] && die "build: Missing command in <$TEMPLATE_CMD>"
-    template_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT "$TEMPLATE_CMD" $DATE_VERSION $IMAGE_NAME_VERSION $IMAGE_VERSION $PICTURE_PATH_BASE
-
-    case "$FROM_IMAGE" in
-        "scratch") STAGE1_IMAGE="mjbright/demo-static-binary";;
-        "alpine")  STAGE1_IMAGE="mjbright/demo-dynamic-binary";;
-
-        *)  die "Unknown FROM_IMAGE type <$FROM_IMAGE>";;
-    esac
+    template_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT "$TEMPLATE_CMD" $DATE_VERSION $IMAGE_NAME_VERSION $IMAGE_VERSION $PICTURE_PATH_BASE $BUILD_ENV_TARGET
 
     #set -euo pipefail
 
     # Pull the latest version of the image, in order to populate the build cache:
-    TIME docker pull $STAGE1_IMAGE || true
     TIME docker pull $IMAGE_TAG    || true
-
-    # Build the compile stage:
-    TIME $DOCKER_BUILD --target build-env     --cache-from=$STAGE1_IMAGE --tag $STAGE1_IMAGE . || die "Build failed" 
 
     # Build the runtime stage, using cached compile stage:
     TIME $DOCKER_BUILD --target runtime-image \
@@ -293,21 +319,16 @@ function template_dockerfile {
     IMAGE_NAME_VERSION=$1; shift
     IMAGE_VERSION=$1; shift
     PICTURE_PATH_BASE=$1; shift
+    BUILD_ENV_TARGET=$1; shift
 
     #echo "EXPOSE_PORT=$EXPOSE_PORT"
     [ "$TEMPLATE_CMD" = "CMD" ] && die "template_dockerfile: Missing command in <$TEMPLATE_CMD>"
 
-    STATIC_STAGE1_BUILD="CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags '-w' -o demo-binary main.build.go"
-    DYNAMIC_STAGE1_BUILD="CGO_ENABLED=0 go build -a -o demo-binary main.build.go"
-
-    case "$FROM_IMAGE" in
-        "scratch") STAGE1_BUILD=$STATIC_STAGE1_BUILD;;
-        "alpine")  STAGE1_BUILD=$DYNAMIC_STAGE1_BUILD;;
-        *)  die "Unknown FROM_IMAGE type <$FROM_IMAGE>";;
-    esac
+    set_build_vars $FROM_IMAGE
 
     check_vars_set FROM_IMAGE EXPOSE_PORT STAGE1_BUILD TEMPLATE_CMD
     check_vars_set DATE_VERSION IMAGE_NAME_VERSION IMAGE_VERSION PICTURE_PATH_BASE
+    check_vars_set BUILD_ENV_TARGET
 
     #echo "IMAGE_NAME_VERSION='$IMAGE_NAME_VERSION'"
     sed  < templates/Dockerfile.tmpl > Dockerfile \
@@ -319,6 +340,7 @@ function template_dockerfile {
         -e "s?__TEMPLATE_CMD__?$TEMPLATE_CMD?" \
         -e "s?__PICTURE_PATH_BASE__?$PICTURE_PATH_BASE?" \
         -e "s?__IMAGE_NAME_VERSION__?$IMAGE_NAME_VERSION?" \
+        -e "s?__BUILD_ENV_TARGET__?$BUILD_ENV_TARGET?" \
 
     [ $VERBOSE -ne 0 ] && grep ENV Dockerfile
 
@@ -361,11 +383,7 @@ function build_and_push {
     FROM_IMAGE=$1; shift
     PORT=$1; shift
     CMD=$1; shift
-    #build $IMAGE_TAG
-    #push $IMAGE_TAG
 
-    #[ "$TEMPLATE_CMD" = "CMD" ] && die "build: Missing command in <$TEMPLATE_CMD>"
-    echo $4
     echo "docker_build $IMAGE_TAG $FROM_IMAGE $PORT $CMD"
     docker_build $IMAGE_TAG $FROM_IMAGE $PORT $CMD
     #docker_push  $IMAGE_TAG # $FROM_IMAGE $PORT $CMD
@@ -399,7 +417,6 @@ function TIME {
     TIMER_STOP
     echo "Took $TOOK secs [${HRS}h${MINS}m${SECS}]"
     [ $RET -ne 0 ] && {
-        pwd
         cat $CMD_OP
         die "ERROR: returned $RET"
     }
@@ -426,20 +443,6 @@ function template_go_src {
     cp -a $SRC $BUILD_SRC
     grep -v "^#" ${BUILD_SRC} | grep __ && die "Uninstantiated variables in '${BUILD_SRC}'"
     [ ! -s "$BUILD_SRC" ] && die "Empty source file '$BUILD_SRC'"
-    return
-
-    check_vars_set DATE_VERSION IMAGE_NAME_VERSION IMAGE_VERSION PICTURE_PATH_BASE
-
-    sed < ${SRC} > ${BUILD_SRC}  \
-           -e "s/__DATE_VERSION__/$DATE_VERSION/" \
-           -e "s?__IMAGE_NAME_VERSION__?$IMAGE_NAME_VERSION?" \
-           -e "s/__IMAGE_VERSION__/$IMAGE_VERSION/" \
-           -e "s?__PICTURE_PATH_BASE__?$PICTURE_PATH_BASE?" \
-
-    #ls -altr ${SRC} ${BUILD_SRC}
-    [ ! -s ${BUILD_SRC} ] && die "Empty ${BUILD_SRC} !!"
-
-    grep -v "^#" ${BUILD_SRC} | grep __ && die "Uninstantiated variables in '${BUILD_SRC}'"
 }
 
 function build_and_push_tags {
@@ -469,8 +472,10 @@ IMAGE_NAME_VERSION=""
 IMAGE_VERSION=""
 
 #set_picture_paths $IMAGE_TAG
-#template_go_src main.go main.build.go
-#TIME check_build main.build.go
+template_go_src main.go main.build.go
+#check_build main.build.go
+docker_build_static_base
+docker_build_dynamic_base
 
 #die "OK"
 

@@ -1,6 +1,6 @@
 
 # -- build stage ---------------------------------------------
-FROM golang:alpine AS build-env
+FROM golang:alpine AS __BUILD_ENV_TARGET__
 
 ADD . /src
 
@@ -27,7 +27,7 @@ ADD static/index.html /app/static/index.html
 ADD templates /app/templates
 
 WORKDIR /app
-COPY    --from=build-env /src/demo-binary /app/
+COPY    --from=__BUILD_ENV_TARGET__ /src/demo-binary /app/
 
 # No shell, available in scratch image so use exec format:
 RUN ["/app/demo-binary", "--version"]
