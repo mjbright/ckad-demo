@@ -16,6 +16,10 @@ exec 2>&1 > >( stdbuf -oL tee $LOG )
 
 mkdir -p logs
 
+# Detect if running under WSL, if so use nocache (for now)
+DOCKER_BUILD="docker build"
+[ ! -z "$WSLENV" ] && DOCKER_BUILD="nocache docker build"
+
 # -- Functions: --------------------------------------------------------
 
 function die {
@@ -91,10 +95,10 @@ function build {
     TIME docker pull $IMAGE_TAG    || true
 
     # Build the compile stage:
-    TIME docker build --target build-env     --cache-from=$STAGE1_IMAGE --tag $STAGE1_IMAGE . || die "Build failed" 
+    TIME $DOCKER_BUILD --target build-env     --cache-from=$STAGE1_IMAGE --tag $STAGE1_IMAGE . || die "Build failed" 
 
     # Build the runtime stage, using cached compile stage:
-    TIME docker build --target runtime-image \
+    TIME $DOCKER_BUILD --target runtime-image \
                  --cache-from=$STAGE1_IMAGE \
                  --cache-from=$IMAGE_TAG --tag $IMAGE_TAG . || die "Build failed"
     #echo "CMD=<$TEMPLATE_CMD>"
@@ -320,7 +324,7 @@ function basic_2stage_build {
     TEMPLATE_CMD="$*"; set --
 
     template_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT "$TEMPLATE_CMD"
-    docker build -t $IMAGE_TAG .
+    $DOCKER_BUILD -t $IMAGE_TAG .
 }
 
 function push {
