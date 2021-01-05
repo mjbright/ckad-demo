@@ -26,9 +26,12 @@ APP_BIN=/app/demo-binary
 LOG=$PWD/logs/${0}.${DATE_VERSION}.log
 PUSH_LOG=$PWD/logs/docker_push.${DATE_VERSION}.log
 LOG_LINK=$PWD/logs/${0}.log
+PUSH_LOG_LINK=$PWD/logs/docker_push.log
 
 [ -h $LOG_LINK ] && rm $LOG_LINK
+[ -h $PUSH_LOG_LINK ] && rm $PUSH_LOG_LINK
 ln -s $LOG $LOG_LINK
+ln -s $PUSH_LOG $PUSH_LOG_LINK
 exec 2>&1 > >( stdbuf -oL tee $LOG )  
 echo "Logging output to '$LOG'"
 echo "Logging image pushes to '$PUSH_LOG'"
@@ -421,7 +424,7 @@ function docker_push {
     CMD="docker push $PUSH_IMAGE "
     TIME $CMD
     RET=$?
-    echo "[$RET] $CMD" >> $PUSH_LOG
+    echo "[$RET] $(date) $CMD" >> $PUSH_LOG
 
     ALREADY=$(grep -c ": Layer already exists" $CMD_OP)
     PUSHED=$(grep -c ": Pushed" $CMD_OP)
