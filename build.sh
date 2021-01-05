@@ -1,6 +1,17 @@
 #!/bin/bash
 
-# TODO: test docker images before push
+# Usage:
+# ./build.sh --full # -f: Build all repos/tags and test and push images ...
+# ./build.sh --build # -b: Build and test all repos/tags
+
+USAGE() {
+    cat <<EOF
+   ./build.sh         # Build and test main repo with tag 1
+   ./build.sh --test  # -t: Test all repos/tags
+   ./build.sh --build # -b: Build and test all repos/tags
+   ./build.sh --full  # -f: Build all repos/tags and test and push images ...
+EOF
+}
 
 VERBOSE=0
 
@@ -524,11 +535,12 @@ CLEAN_IMAGES=0
 while [ ! -z "$1" ]; do
     case $1 in
         --verbose|-v)     VERBOSE=1;;
+        --help|-h)        USAGE; exit 0;;
 
 	# ACTIONS:
         --full|-f)        TEST=1;BUILD=1;PUSH=1; TAGS=$ALL_TAGS; REPO_NAMES=$ALL_REPO_NAMES;;
         --clean|-c)       CLEAN_IMAGES=1;;
-        --build|-b)       BUILD=1;;
+        --build|-b)       BUILD=1; TEST=1;;
         --push|-p)        PUSH=1;;
         --test|-T)        BUILD=0;PUSH=0;TEST=1;;
         --push-only|-P)   TEST=0;BUILD=0;PUSH=1;;
