@@ -554,6 +554,10 @@ while [ ! -z "$1" ]; do
 	# REPOS:
         --repos|-r)       shift; REPO_NAMES=$1;;
         --all-images|-ai) REPO_NAMES=$ALL_REPO_NAMES;;
+        --dd)             REPO_NAMES="docker-demo";;
+        ++dd)             REPO_NAMES+=" docker-demo";;
+        --kd)             REPO_NAMES="k8s-demo";;
+        ++kd)             REPO_NAMES+=" k8s-demo";;
 
 	# ALL IMAGE TAGS & REPOS:
         --all|-a)         TAGS=$ALL_TAGS; REPO_NAMES=$ALL_REPO_NAMES;;
