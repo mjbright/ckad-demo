@@ -4,6 +4,8 @@
 # ./build.sh --full # -f: Build all repos/tags and test and push images ...
 # ./build.sh --build # -b: Build and test all repos/tags
 
+RESET_ANSI='\033[0m' 
+
 USAGE() {
     cat <<EOF
    ./build.sh         # Build and test main repo with tag 1
@@ -55,6 +57,10 @@ function DOCKER_LOGIN {
         cat ~/tmp/docker.login.op
         die "Failed to login to Docker Hub"
     }
+}
+
+function AWK_IMAGE_TAG {
+    awk '!/^REPOSITORY *TAG/ { printf "%s:%s\n", $1, $2; }'
 }
 
 function check_build {
@@ -144,7 +150,7 @@ function docker_build {
     #set -euo pipefail
 
     # Pull the latest version of the image, in order to populate the build cache:
-    TIME docker pull $IMAGE_TAG    || true
+    #### XXXXXX TIME docker pull $IMAGE_TAG    || true
 
     # Build the runtime stage, using cached compile stage:
     TIME $DOCKER_BUILD --target runtime-image \
@@ -190,14 +196,17 @@ function DOCKER_test_image {
 
     # Use default command:
     #docker run --rm -d --name $CONTAINERNAME -p 8181:$EXPOSE_PORT $IMAGE_TAG $APP_BIN
+    docker image ls $IMAGE_TAG | AWK_IMAGE_TAG | grep $IMAGE_TAG || die "No such image (not pulling) <$IMAGE_TAG>"
+    #die "OK??"
     CMD="docker run --rm -d --name $CONTAINERNAME -p 8181:$PORT $IMAGE_TAG"
     echo "---- $CMD"
     $CMD
 
     CONTAINERID=$(docker ps -ql)
 
-    echo -n "Sample asciitext lines: "
-    curl -sL 127.0.0.1:8181/ | head -4
+    echo -n "Sample asciitext lines: " $( curl -sL 127.0.0.1:8181/ | head -2 )
+    echo -ne $RESET_ANSI
+
     curl -sL 127.0.0.1:8181/1 ||
       die "Failed to interrogate container <$CONTAINERID> $CONTAINERNAME from image <$IMAGE_TAG>"
     #ATEXT_LINE=$(curl -sL 127.0.0.1:8181/ | head -10 | tail -1)
@@ -319,8 +328,8 @@ function SET_picture_paths {
     COLOUR=""
     case $IMAGE_TAG in
         *:1|*:alpine1) COLOUR="blue";;
-        *:2|*:alpine2) COLOUR="red";;
-        *:3|*:alpine3) COLOUR="green";;
+        *:2|*:alpine2) COLOUR="green";;
+        *:3|*:alpine3) COLOUR="red";;
         *:4|*:alpine4) COLOUR="cyan";;
         *:5|*:alpine5) COLOUR="yellow";;
         *:6|*:alpine6) COLOUR="white";;
@@ -329,6 +338,7 @@ function SET_picture_paths {
 
     PICTURE_BASE="${PICTURE_TYPE}_${COLOUR}"
     PICTURE_PATH_BASE="static/img/${PICTURE_BASE}"
+    PICTURE_COLOUR="${COLOUR}"
 
     [ ! -f "${PICTURE_PATH_BASE}.png" ] && die "No such file <${PICTURE_PATH_BASE}.png>"
     [ ! -f "${PICTURE_PATH_BASE}.txt" ] && die "No such file <${PICTURE_PATH_BASE}.txt>"
@@ -372,6 +382,7 @@ function template_dockerfile {
         -e "s/__IMAGE_VERSION__/$IMAGE_VERSION/" \
         -e "s?__TEMPLATE_CMD__?$TEMPLATE_CMD?" \
         -e "s?__PICTURE_PATH_BASE__?$PICTURE_PATH_BASE?" \
+        -e "s?__PICTURE_COLOUR__?$PICTURE_COLOUR?" \
         -e "s?__IMAGE_NAME_VERSION__?$IMAGE_NAME_VERSION?" \
         -e "s?__BUILD_ENV_TARGET__?$BUILD_ENV_TARGET?" \
 
@@ -568,8 +579,8 @@ done
 [ $CLEAN_IMAGES -ne 0 ] && {
     for REPO in $REPO_NAMES; do
         #docker rmi $(docker image ls mjbright/docker-demo | awk '!/^REPOSITORY *TAG/ { printf "%s:%s\n", $1, $2; }')
-	IMAGE_TAGS=$(docker image ls $REPO | awk '!/^REPOSITORY *TAG/ { printf "%s:%s\n", $1, $2; }')
-            echo "---- docker rmi $IMAGE_TAGS"
+	IMAGE_TAGS=$(docker image ls $REPO | AWK_IMAGE_TAG)
+        echo "---- docker rmi $IMAGE_TAGS"
 	if [ ! -z "$IMAGE_TAGS" ]; then
             docker rmi $IMAGE_TAGS
         else

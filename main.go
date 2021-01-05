@@ -20,16 +20,20 @@ import (
 )
 
 const (
-	// Courtesy of "telnet mapascii.me"
-	MAP_ASCII_ART      = "static/img/mapascii.txt"
+    // Courtesy of "telnet mapascii.me"
+    MAP_ASCII_ART      = "static/img/mapascii.txt"
 
-	escape             = "\x1b"
-	colour_me_black    = escape + "[0;30m"
-	colour_me_red      = escape + "[0;31m"
-	colour_me_green    = escape + "[0;32m"
-	colour_me_blue     = escape + "[0;34m"
-	colour_me_yellow   = escape + "[1;33m"
-	colour_me_normal   = escape + "[0;0m"
+    escape             = "\x1b"
+    colour_me_black    = escape + "[0;30m"
+    colour_me_red      = escape + "[0;31m"
+    colour_me_green    = escape + "[0;32m"
+    colour_me_yellow   = escape + "[0;33m"
+    colour_me_blue     = escape + "[0;34m"
+    colour_me_magenta  = escape + "[0;35m"
+    colour_me_cyan     = escape + "[0;36m"
+    colour_me_white    = escape + "[0;37m"
+
+    colour_me_normal   = escape + "[0;0m"
 )
 
 var (
@@ -42,6 +46,9 @@ var (
     DATE_VERSION       = os.Getenv("DATE_VERSION")
     logo_base_path = os.Getenv("PICTURE_PATH_BASE")
     logo_path      = logo_base_path + ".txt"
+
+    colour_text=colour_me_white
+    text_colour    = os.Getenv("PICTURE_COLOUR")
 
     mux        = http.NewServeMux()
     listenAddr string = ":80"
@@ -197,6 +204,17 @@ func statusCodeTest(w http.ResponseWriter, req *http.Request) {
 func index(w http.ResponseWriter, r *http.Request) {
     log.Printf("Request from '%s' (%s)\n", r.Header.Get("X-Forwarded-For"), r.URL.Path)
 
+    switch text_colour {
+        case "black":   colour_text=colour_me_black
+        case "red":     colour_text=colour_me_red
+        case "green":   colour_text=colour_me_green
+        case "yellow":  colour_text=colour_me_yellow
+        case "blue":    colour_text=colour_me_blue
+        case "magenta": colour_text=colour_me_magenta
+        case "cyan":    colour_text=colour_me_cyan
+        case "white":   colour_text=colour_me_white
+    }
+
     //if (dieafter > 0) {
     //    if now > started +dieafter {
     //        log.Fatal("Dying once delay")
@@ -233,7 +251,7 @@ func index(w http.ResponseWriter, r *http.Request) {
         formattedReq   = formatRequest(r) + "\n"
     }
 
-    // TOOD: bad
+    // TODO: bad
     // if CaseInsensitiveContains(IMAGE_VERSION, "bad") ||
     // }
 
@@ -248,7 +266,7 @@ func index(w http.ResponseWriter, r *http.Request) {
         htmlPageTitle = msg
     } else {
         hostType = "container"
-        imageInfo = "[image " + IMAGE_NAME_VERSION + "]"
+        imageInfo = "[" + IMAGE_NAME_VERSION + "]"
         htmlPageTitle = msg + " " + imageInfo
     }
 
@@ -282,9 +300,10 @@ func index(w http.ResponseWriter, r *http.Request) {
 
         if fwd != "" { fwd=" [" + fwd + "]" }
 
-	p1 := fmt.Sprintf("Served from %s %s%s%s<%s>%s%s" + "Request from %s%s%s" + "%s%s" + "%s",
-	        hostType, colour_me_yellow, hostName, imageInfo, myIP, colour_me_normal, d,
-		from,fwd, d,
+	p1 := fmt.Sprintf("%s %s%s@%s%s%s %simage%s%s " + "Request from %s%s%s" + "%s%s" + "%s",
+	        hostType, colour_me_yellow, hostName, myIP, d, colour_me_normal,
+		colour_text, colour_me_normal, imageInfo,
+		from, fwd, d,
 		networkInfo, d,
 	        msg)
 
