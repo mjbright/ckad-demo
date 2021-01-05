@@ -24,7 +24,7 @@ DATE_VERSION=$(date +%Y-%b-%d_%02Hh%02Mm%02S)
 APP_BIN=/app/demo-binary
 
 LOG=$PWD/logs/${0}.${DATE_VERSION}.log
-PUSH_LOG=$PWD/logs/docker_push_${0}.${DATE_VERSION}.log
+PUSH_LOG=$PWD/logs/docker_push.${DATE_VERSION}.log
 LOG_LINK=$PWD/logs/${0}.log
 
 [ -h $LOG_LINK ] && rm $LOG_LINK
