@@ -24,11 +24,14 @@ DATE_VERSION=$(date +%Y-%b-%d_%02Hh%02Mm%02S)
 APP_BIN=/app/demo-binary
 
 LOG=$PWD/logs/${0}.${DATE_VERSION}.log
+PUSH_LOG=$PWD/logs/docker_push_${0}.${DATE_VERSION}.log
 LOG_LINK=$PWD/logs/${0}.log
 
 [ -h $LOG_LINK ] && rm $LOG_LINK
 ln -s $LOG $LOG_LINK
 exec 2>&1 > >( stdbuf -oL tee $LOG )  
+echo "Logging output to '$LOG'"
+echo "Logging image pushes to '$PUSH_LOG'"
 
 mkdir -p logs
 mkdir -p ~/tmp
@@ -415,7 +418,11 @@ function docker_push {
     #FROM_IMAGE=$1; shift
     [ $PUSH -eq 0 ] && return 0 # SKIPPGIN PUSH
 
-    TIME docker push $PUSH_IMAGE 
+    CMD="docker push $PUSH_IMAGE "
+    TIME $CMD
+    RET=$?
+    echo "[$RET] $CMD" >> $PUSH_LOG
+
     ALREADY=$(grep -c ": Layer already exists" $CMD_OP)
     PUSHED=$(grep -c ": Pushed" $CMD_OP)
     let LAYERS=ALREADY+PUSHED
@@ -626,4 +633,7 @@ TIMER_START; START0_S=$START_S
 
     TREAT_REPOS
 START_S=$START0_S; TIMER_STOP; echo "SCRIPT Took $TOOK secs [${HRS}h${MINS}m${SECS}]"
+
+echo "Output logged to '$LOG'"
+echo "Image pushes were logged to '$PUSH_LOG'"
 
