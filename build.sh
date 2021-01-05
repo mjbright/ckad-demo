@@ -8,7 +8,8 @@ USAGE() {
     cat <<EOF
    ./build.sh         # Build and test main repo with tag 1
    ./build.sh --test  # -t: Test all repos/tags
-   ./build.sh --build # -b: Build and test all repos/tags
+   ./build.sh --all   # -a: Build and test all repos/tags
+   ./build.sh --build # -b: Build and test selected repos/tags
    ./build.sh --full  # -f: Build all repos/tags and test and push images ...
 EOF
 }
