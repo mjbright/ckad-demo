@@ -204,7 +204,8 @@ function DOCKER_test_image {
 
     CONTAINERID=$(docker ps -ql)
 
-    echo -n "Sample asciitext lines: " $( curl -sL 127.0.0.1:8181/ | head -2 )
+    #echo -n "Sample asciitext lines: " $( curl -sL 127.0.0.1:8181/ | head -2 )
+    echo "Sample asciitext lines: " $( curl -sL 127.0.0.1:8181/ | head -2 )
     echo -ne $RESET_ANSI
 
     curl -sL 127.0.0.1:8181/1 ||
