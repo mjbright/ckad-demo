@@ -1,6 +1,20 @@
 #!/bin/bash
 
-# TODO: test docker images before push
+# Usage:
+# ./build.sh --full # -f: Build all repos/tags and test and push images ...
+# ./build.sh --build # -b: Build and test all repos/tags
+
+RESET_ANSI='\033[0m' 
+
+USAGE() {
+    cat <<EOF
+   ./build.sh         # Build and test main repo with tag 1
+   ./build.sh --test  # -t: Test all repos/tags
+   ./build.sh --all   # -a: Build and test all repos/tags
+   ./build.sh --build # -b: Build and test selected repos/tags
+   ./build.sh --full  # -f: Build all repos/tags and test and push images ...
+EOF
+}
 
 VERBOSE=0
 
@@ -10,13 +24,20 @@ DATE_VERSION=$(date +%Y-%b-%d_%02Hh%02Mm%02S)
 APP_BIN=/app/demo-binary
 
 LOG=$PWD/logs/${0}.${DATE_VERSION}.log
+PUSH_LOG=$PWD/logs/docker_push.${DATE_VERSION}.log
 LOG_LINK=$PWD/logs/${0}.log
+PUSH_LOG_LINK=$PWD/logs/docker_push.log
 
 [ -h $LOG_LINK ] && rm $LOG_LINK
+[ -h $PUSH_LOG_LINK ] && rm $PUSH_LOG_LINK
 ln -s $LOG $LOG_LINK
+ln -s $PUSH_LOG $PUSH_LOG_LINK
 exec 2>&1 > >( stdbuf -oL tee $LOG )  
+echo "Logging output to '$LOG'"
+echo "Logging image pushes to '$PUSH_LOG'"
 
 mkdir -p logs
+mkdir -p ~/tmp
 
 # Detect if running under WSL, if so use nocache (for now)
 DOCKER_BUILD="docker build"
@@ -31,11 +52,22 @@ function die {
     echo "$0: die - $*" >&2
     for i in 0 1 2 3 4 5 6 7 8 9 10;do
         CALLER_INFO=`caller $i`
-	[ -z "$CALLER_INFO" ] && break
-	echo "    Line: $CALLER_INFO" >&2
+        [ -z "$CALLER_INFO" ] && break
+        echo "    Line: $CALLER_INFO" >&2
     done
     exit 1
 }          
+
+function DOCKER_LOGIN {
+    docker login > ~/tmp/docker.login.op 2>&1 || {
+        cat ~/tmp/docker.login.op
+        die "Failed to login to Docker Hub"
+    }
+}
+
+function AWK_IMAGE_TAG {
+    awk '!/^REPOSITORY *TAG/ { printf "%s:%s\n", $1, $2; }'
+}
 
 function check_build {
     SRC_GO=$1; shift
@@ -116,7 +148,7 @@ function docker_build {
     IMAGE_NAME_VERSION=$IMAGE_TAG
     IMAGE_VERSION=${IMAGE_TAG#*:}
 
-    set_picture_paths $IMAGE_TAG
+    SET_picture_paths $IMAGE_TAG
     set_build_vars $FROM_IMAGE
     [ "$TEMPLATE_CMD" = "CMD" ] && die "build: Missing command in <$TEMPLATE_CMD>"
     template_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT "$TEMPLATE_CMD" $DATE_VERSION $IMAGE_NAME_VERSION $IMAGE_VERSION $PICTURE_PATH_BASE $BUILD_ENV_TARGET
@@ -124,7 +156,7 @@ function docker_build {
     #set -euo pipefail
 
     # Pull the latest version of the image, in order to populate the build cache:
-    TIME docker pull $IMAGE_TAG    || true
+    #### XXXXXX TIME docker pull $IMAGE_TAG    || true
 
     # Build the runtime stage, using cached compile stage:
     TIME $DOCKER_BUILD --target runtime-image \
@@ -148,26 +180,44 @@ function docker_build {
     echo; echo "---- [docker] Testing  $IMAGE_TAG ----------"
     let DELAY=LIVE+READY
     [ $DELAY -ne 0 ] && { echo "Waiting for live/ready $LIVE/$READY secs"; sleep $DELAY; }
-
-    docker_test_image
     #kubernetes_test_image
 
     # Push the new versions:
-    docker_push $STAGE1_IMAGE
-    docker_push $IMAGE_TAG
+    ## XXXX docker_push $STAGE1_IMAGE
+    ## XXXX docker_push $IMAGE_TAG
 }
 
-function docker_test_image {
+function DOCKER_test_image {
+    # build_and_push $IMAGE scratch $PORT $CMD
+    [ $VERBOSE -ne 0 ] && echo "FN: test_image $*"
+    IMAGE_TAG=$1; shift
+    FROM_IMAGE=$1; shift
+    PORT=$1; shift
+    CMD=$1; shift
+
+    SET_picture_paths $IMAGE_TAG
+    ITAG=$(echo $IMAGE_TAG | sed 's?[/:_]?-?g')
     CONTAINERNAME=buildtest-$ITAG
     docker rm --force name $CONTAINERNAME 2>/dev/null
 
     # Use default command:
     #docker run --rm -d --name $CONTAINERNAME -p 8181:$EXPOSE_PORT $IMAGE_TAG $APP_BIN
-    docker run --rm -d --name $CONTAINERNAME -p 8181:$EXPOSE_PORT $IMAGE_TAG
+    docker image ls $IMAGE_TAG | AWK_IMAGE_TAG | grep $IMAGE_TAG || die "No such image (not pulling) <$IMAGE_TAG>"
+    #die "OK??"
+    CMD="docker run --rm -d --name $CONTAINERNAME -p 8181:$PORT $IMAGE_TAG"
+    echo "---- $CMD"
+    $CMD
+
     CONTAINERID=$(docker ps -ql)
+
+    #echo -n "Sample asciitext lines: " $( curl -sL 127.0.0.1:8181/ | head -2 )
+    echo "Sample asciitext lines: " $( curl -sL 127.0.0.1:8181/ | head -2 )
+    echo -ne $RESET_ANSI
 
     curl -sL 127.0.0.1:8181/1 ||
       die "Failed to interrogate container <$CONTAINERID> $CONTAINERNAME from image <$IMAGE_TAG>"
+    #ATEXT_LINE=$(curl -sL 127.0.0.1:8181/ | head -10 | tail -1)
+    #echo "Sample asciitext line: $ATEXT_LINE"
 
     TXT_PATH="${PICTURE_PATH_BASE}.txt"
     [ ! -f $TXT_PATH ] && die "No such txt file <$TXT_PATH>"
@@ -252,7 +302,7 @@ function kubernetes_test_image {
 
     curl -sL 127.0.0.1:8181/1 || {
         #kubectl delete pod/$PODNAME
-	echo "----- ERROR"
+        echo "----- ERROR"
         echo "Test then 'kubectl delete pod/$PODNAME'"
         echo "Test then 'kill -9 $PID' # port-forward"
         die "Failed to interrogate pod <$PODNAME> from image <$IMAGE_TAG>"
@@ -268,10 +318,9 @@ function kubernetes_test_image {
     # NEED TO KILL POD
     kill -9 $PID
     kubectl delete pod/$PODNAME
-
 }
 
-function set_picture_paths {
+function SET_picture_paths {
     [ $VERBOSE -ne 0 ] && echo "FN: set_picture_paths $*"
     IMAGE_TAG=$1; shift
 
@@ -296,6 +345,7 @@ function set_picture_paths {
 
     PICTURE_BASE="${PICTURE_TYPE}_${COLOUR}"
     PICTURE_PATH_BASE="static/img/${PICTURE_BASE}"
+    PICTURE_COLOUR="${COLOUR}"
 
     [ ! -f "${PICTURE_PATH_BASE}.png" ] && die "No such file <${PICTURE_PATH_BASE}.png>"
     [ ! -f "${PICTURE_PATH_BASE}.txt" ] && die "No such file <${PICTURE_PATH_BASE}.txt>"
@@ -339,6 +389,7 @@ function template_dockerfile {
         -e "s/__IMAGE_VERSION__/$IMAGE_VERSION/" \
         -e "s?__TEMPLATE_CMD__?$TEMPLATE_CMD?" \
         -e "s?__PICTURE_PATH_BASE__?$PICTURE_PATH_BASE?" \
+        -e "s?__PICTURE_COLOUR__?$PICTURE_COLOUR?" \
         -e "s?__IMAGE_NAME_VERSION__?$IMAGE_NAME_VERSION?" \
         -e "s?__BUILD_ENV_TARGET__?$BUILD_ENV_TARGET?" \
 
@@ -368,17 +419,21 @@ function docker_push {
     [ $VERBOSE -ne 0 ] && echo "FN: docker_push $*"
     local PUSH_IMAGE=$1; shift
     #FROM_IMAGE=$1; shift
+    [ $PUSH -eq 0 ] && return 0 # SKIPPGIN PUSH
 
-    TIME docker push $PUSH_IMAGE 
+    CMD="docker push $PUSH_IMAGE "
+    TIME $CMD
+    RET=$?
+    echo "[$RET] $(date) $CMD" >> $PUSH_LOG
+
     ALREADY=$(grep -c ": Layer already exists" $CMD_OP)
     PUSHED=$(grep -c ": Pushed" $CMD_OP)
     let LAYERS=ALREADY+PUSHED
     echo "Pushed $PUSHED of $LAYERS layers"
 }
 
-function build_and_push {
-    # build_and_push $IMAGE scratch $PORT $CMD
-    [ $VERBOSE -ne 0 ] && echo "FN: build_and_push $*"
+function DOCKER_build_image {
+    [ $VERBOSE -ne 0 ] && echo "FN: build_image $*"
     IMAGE_TAG=$1; shift
     FROM_IMAGE=$1; shift
     PORT=$1; shift
@@ -386,7 +441,17 @@ function build_and_push {
 
     echo "docker_build $IMAGE_TAG $FROM_IMAGE $PORT $CMD"
     docker_build $IMAGE_TAG $FROM_IMAGE $PORT $CMD
-    #docker_push  $IMAGE_TAG # $FROM_IMAGE $PORT $CMD
+}
+
+function DOCKER_push_image {
+    # build_and_push $IMAGE scratch $PORT $CMD
+    [ $VERBOSE -ne 0 ] && echo "FN: push_image $*"
+    IMAGE_TAG=$1; shift
+    FROM_IMAGE=$1; shift
+    PORT=$1; shift
+    CMD=$1; shift
+
+    docker_push  $IMAGE_TAG # $FROM_IMAGE $PORT $CMD
 }
 
 # START: TIMER FUNCTIONS ================================================
@@ -445,20 +510,26 @@ function template_go_src {
     [ ! -s "$BUILD_SRC" ] && die "Empty source file '$BUILD_SRC'"
 }
 
-function build_and_push_tags {
+function TREAT_REPOS {
+    
+    #docker_test_image
     for REPO_NAME in $REPO_NAMES; do
-        echo; echo "---- Building images <$REPO_NAME> --------"
+        echo; echo "---- ${ACTION}ing images <$REPO_NAME> --------"
         for TAG in $TAGS; do
             REPO="mjbright/$REPO_NAME"
             PORT=80
 
             IMAGE="${REPO}:${TAG}"
             CMD="[\"$APP_BIN\",\"--listen\",\":$PORT\",\"-l\",\"$LIVE\",\"-r\",\"$READY\"]"
-            build_and_push $IMAGE scratch $PORT $CMD
+            [ $BUILD -ne 0 ] && DOCKER_build_image $IMAGE scratch $PORT $CMD
+            [ $TEST  -ne 0 ] && DOCKER_test_image  $IMAGE scratch $PORT $CMD
+            [ $PUSH  -ne 0 ] && DOCKER_push_image  $IMAGE scratch $PORT $CMD
 
             IMAGE="${REPO}:alpine${TAG}"
             CMD="[\"$APP_BIN\",\"--listen\",\":$PORT\",\"-l\",\"$LIVE\",\"-r\",\"$READY\"]"
-            build_and_push $IMAGE alpine  $PORT $CMD
+            [ $BUILD -ne 0 ] && DOCKER_build_image $IMAGE alpine $PORT $CMD
+            [ $TEST  -ne 0 ] && DOCKER_test_image  $IMAGE alpine $PORT $CMD
+            [ $PUSH  -ne 0 ] && DOCKER_push_image  $IMAGE alpine $PORT $CMD
 
             ## IMAGE="${REPO}:bad${TAG}"
             ## build_and_push $IMAGE alpine  $PORT  "--listen :$PORT -l 10 -r 10 -i $IMAGE"
@@ -471,14 +542,6 @@ function build_and_push_tags {
 IMAGE_NAME_VERSION=""
 IMAGE_VERSION=""
 
-#set_picture_paths $IMAGE_TAG
-template_go_src main.go main.build.go
-#check_build main.build.go
-docker_build_static_base
-docker_build_dynamic_base
-
-#die "OK"
-
 ## -- Args: -------------------------------------------------------------
 
 ALL_REPO_NAMES="ckad-demo k8s-demo docker-demo"
@@ -487,48 +550,93 @@ ALL_TAGS=$(seq 6)
 REPO_NAMES="ckad-demo"
 TAGS=""
 
+BUILD=1
+TEST=1
+PUSH=0
+CLEAN_IMAGES=0
+
 while [ ! -z "$1" ]; do
     case $1 in
-        [0-9]*)           TAGS+=" $1";;
         --verbose|-v)     VERBOSE=1;;
+        --help|-h)        USAGE; exit 0;;
+
+	# ACTIONS:
+        --full|-f)        TEST=1;BUILD=1;PUSH=1; TAGS=$ALL_TAGS; REPO_NAMES=$ALL_REPO_NAMES;;
+        --clean|-c)       CLEAN_IMAGES=1;;
+        --build|-b)       BUILD=1; TEST=1;;
+        --push|-p)        PUSH=1;;
+        --test|-T)        BUILD=0;PUSH=0;TEST=1;;
+        --push-only|-P)   TEST=0;BUILD=0;PUSH=1;;
+
+	# IMAGE TAGS:
+        [0-9]*)           TAGS+=" $1";;
         --tag|-t)         shift; TAGS=$1;;
-        --all|-a)         TAGS=$ALL_TAGS; REPO_NAMES=$ALL_REPO_NAMES;;
         --all-tags|-at)   TAGS=$ALL_TAGS;;
-        --all-images|-ai) REPO_NAMES=$ALL_REPO_NAMES;;
+
+	# REPOS:
         --repos|-r)       shift; REPO_NAMES=$1;;
+        --all-images|-ai) REPO_NAMES=$ALL_REPO_NAMES;;
+        --dd)             REPO_NAMES="docker-demo";;
+        ++dd)             REPO_NAMES+=" docker-demo";;
+        --kd)             REPO_NAMES="k8s-demo";;
+        ++kd)             REPO_NAMES+=" k8s-demo";;
+
+	# ALL IMAGE TAGS & REPOS:
+        --all|-a)         TAGS=$ALL_TAGS; REPO_NAMES=$ALL_REPO_NAMES;;
     esac
     shift
 done
 
+[ $CLEAN_IMAGES -ne 0 ] && {
+    for REPO in $REPO_NAMES; do
+        #docker rmi $(docker image ls mjbright/docker-demo | awk '!/^REPOSITORY *TAG/ { printf "%s:%s\n", $1, $2; }')
+	IMAGE_TAGS=$(docker image ls $REPO | AWK_IMAGE_TAG)
+        echo "---- docker rmi $IMAGE_TAGS"
+	if [ ! -z "$IMAGE_TAGS" ]; then
+            docker rmi $IMAGE_TAGS
+        else
+            echo "No matching images for $REPO"
+	fi
+    done
+    exit 0
+}
+
 [ -z "$TAGS" ] && TAGS="1"
 
-echo "Building repos<$REPO_NAMES> tags<"$TAGS">"
+ACTION=""
+[ $BUILD -ne 0 ] && ACTION+="Build"
+[ $TEST -ne 0 ] && ACTION+="/Test"
+[ $PUSH -ne 0 ] && ACTION+="/Push"
+ACTION=${ACTION#/}
 
 ## -- Main: -------------------------------------------------------------
 
-# Incremental builds:
+echo; echo "---- ${ACTION}ing images for repos<$REPO_NAMES> tags<"$TAGS">"
 
-docker login > ~/tmp/docker.login.op 2>&1 || {
-    cat ~/tmp/docker.login.op
-    die "Failed to login to Docker Hub"
-}
-#kubectl get nodes || die "Failed to access cluster"
 
-TIME docker pull alpine:latest || true
+DOCKER_LOGIN
+
+if [ $BUILD -ne 0 ]; then
+    # Incremental builds:
+    #SET_picture_paths $IMAGE_TAG
+    template_go_src main.go main.build.go
+    #check_build main.build.go
+    docker_build_static_base
+    docker_build_dynamic_base
+
+    TIME docker pull alpine:latest || true
+fi
 
 TIMER_START; START0_S=$START_S
+    LIVE=0
+    READY=0
 
-#LIVENESS_DELAY=0
-LIVE=0
-#READINESS_DELAY=0
-READY=0
+    #LIVE=03
+    #READY=03
 
-#LIVE=03
-#READY=03
-
-build_and_push_tags
-
+    TREAT_REPOS
 START_S=$START0_S; TIMER_STOP; echo "SCRIPT Took $TOOK secs [${HRS}h${MINS}m${SECS}]"
 
-#build_and_push "mjbright/ckad-demo:alpine1" "alpine" 
+echo "Output logged to '$LOG'"
+echo "Image pushes were logged to '$PUSH_LOG'"
 
