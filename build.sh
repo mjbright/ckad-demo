@@ -286,8 +286,8 @@ function set_picture_paths {
     COLOUR=""
     case $IMAGE_TAG in
         *:1|*:alpine1) COLOUR="blue";;
-        *:2|*:alpine2) COLOUR="red";;
-        *:3|*:alpine3) COLOUR="green";;
+        *:2|*:alpine2) COLOUR="green";;
+        *:3|*:alpine3) COLOUR="red";;
         *:4|*:alpine4) COLOUR="cyan";;
         *:5|*:alpine5) COLOUR="yellow";;
         *:6|*:alpine6) COLOUR="white";;
