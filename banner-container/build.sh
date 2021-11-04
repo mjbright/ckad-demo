@@ -52,9 +52,9 @@ build_image() {
 ################################################################################
 # Main:
 
-build_image "hello1.banner"  ""  mjbright/banner:hello1 "OK" "OK"
-build_image "quiz.banner"    ""  mjbright/banner:quiz   "OK" "OK"
-build_image "vote.banner"    ""  mjbright/banner:vote   "OK" "OK"
+build_image "hello1.txt"  ""  mjbright/banner:hello1 "OK" "OK"
+build_image "quiz.txt"    ""  mjbright/banner:quiz   "OK" "OK"
+build_image "vote.txt"    ""  mjbright/banner:vote   "OK" "OK"
 
 die "OK"
 
