@@ -1,0 +1,51 @@
+
+# -- build stage ---------------------------------------------
+FROM golang:alpine AS __BUILD_ENV_TARGET__
+
+ADD . /src
+
+# Command works:
+
+# VERSION to use with 'FROM alpine' below:
+#RUN cd /src && go build -o demo-binary
+
+# VERSION to use with 'FROM scratch' below:
+RUN cd /src && __STAGE1_BUILD__
+
+RUN ls -al  /src/demo-binary; ls -alh /src/demo-binary; /src/demo-binary --version
+
+# -- final stage ---------------------------------------------
+
+FROM __FROM_IMAGE__ AS runtime-image
+
+ADD static/css /app/static/css
+ADD static/img /app/static/img
+ADD static/index.html /app/static/index.html
+#UNUSED - ADD static/font /app/static/font
+#UNUSED - ADD static/text /app/static/text
+
+ADD templates /app/templates
+
+WORKDIR /app
+COPY    --from=__BUILD_ENV_TARGET__ /src/demo-binary /app/
+
+# No shell, available in scratch image so use exec format:
+RUN ["/app/demo-binary", "--version"]
+
+ENV DATE_VERSION="__DATE_VERSION__"
+ENV IMAGE_NAME_VERSION="__IMAGE_NAME_VERSION__"
+ENV IMAGE_VERSION="__IMAGE_VERSION__"
+ENV PICTURE_PATH_BASE="__PICTURE_PATH_BASE__"
+ENV PICTURE_COLOUR="__PICTURE_COLOUR__"
+
+EXPOSE __EXPOSE_PORT__
+
+# With this form, we would need to override entrypoint if we want a shell (with alpine version):
+#     docker run --entrypoint /bin/sh --rm -it mjbright/ckad-demo:alpine1
+#   ENTRYPOINT ["/app/demo-binary"]
+#   CMD __TEMPLATE_CMD__
+#   Where CMD is "--listen :$PORT -l 10 -r 10"
+
+# With this form, we can easily overwrite the command:
+CMD __TEMPLATE_CMD__
+

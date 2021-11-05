@@ -22,7 +22,7 @@ RUN cd /src  && CGO_ENABLED=0 go mod init banner && CGO_ENABLED=0 go build -a -o
 FROM alpine
 
 ADD static    /app/static
-#ADD templates /app/templates
+ADD templates /app/templates
 
 WORKDIR /app
 COPY    --from=build-env /src/banner-demo /app/
