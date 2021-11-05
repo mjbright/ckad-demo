@@ -55,11 +55,13 @@ build_image() {
 build_image "hello1_yellow.txt"  "hello_yellow.jpg"  mjbright/banner:hello1 "OK" "OK"
 build_image "quiz_blue.txt"      "quiz_blue.png"     mjbright/banner:quiz   "OK" "OK"
 build_image "vote_green.txt"     "vote_green.png"    mjbright/banner:vote   "OK" "OK"
+build_image "404_red.txt"        "404_red.jpg"       mjbright/banner:404    "OK" "OK"
 
 $BUILDER login
 $BUILDER push mjbright/banner:hello1
 $BUILDER push mjbright/banner:quiz
 $BUILDER push mjbright/banner:vote
+$BUILDER push mjbright/banner:404
 
 exit
 
