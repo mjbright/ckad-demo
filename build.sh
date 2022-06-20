@@ -9,6 +9,7 @@ RESET_ANSI='\033[0m'
 USAGE() {
     cat <<EOF
    ./build.sh         # Build and test main repo with tag 1
+   ./build.sh --local # -l: Build binary, not image
    ./build.sh --test  # -t: Test all repos/tags
    ./build.sh --all   # -a: Build and test all repos/tags
    ./build.sh --build # -b: Build and test selected repos/tags
@@ -554,6 +555,7 @@ BUILD=1
 TEST=1
 PUSH=0
 CLEAN_IMAGES=0
+LOCAL=0
 
 while [ ! -z "$1" ]; do
     case $1 in
@@ -565,6 +567,7 @@ while [ ! -z "$1" ]; do
         --clean|-c)       CLEAN_IMAGES=1;;
         --build|-b)       BUILD=1; TEST=1;;
         --push|-p)        PUSH=1;;
+        --local|-l)       BUILD=1;LOCAL=1;PUSH=0;TEST=1;;
         --test|-T)        BUILD=0;PUSH=0;TEST=1;;
         --push-only|-P)   TEST=0;BUILD=0;PUSH=1;;
 
@@ -590,13 +593,13 @@ done
 [ $CLEAN_IMAGES -ne 0 ] && {
     for REPO in $REPO_NAMES; do
         #docker rmi $(docker image ls mjbright/docker-demo | awk '!/^REPOSITORY *TAG/ { printf "%s:%s\n", $1, $2; }')
-	IMAGE_TAGS=$(docker image ls $REPO | AWK_IMAGE_TAG)
+	      IMAGE_TAGS=$(docker image ls $REPO | AWK_IMAGE_TAG)
         echo "---- docker rmi $IMAGE_TAGS"
-	if [ ! -z "$IMAGE_TAGS" ]; then
+	      if [ ! -z "$IMAGE_TAGS" ]; then
             docker rmi $IMAGE_TAGS
         else
             echo "No matching images for $REPO"
-	fi
+	      fi
     done
     exit 0
 }
@@ -605,8 +608,8 @@ done
 
 ACTION=""
 [ $BUILD -ne 0 ] && ACTION+="Build"
-[ $TEST -ne 0 ] && ACTION+="/Test"
-[ $PUSH -ne 0 ] && ACTION+="/Push"
+[ $TEST  -ne 0 ] && ACTION+="/Test"
+[ $PUSH  -ne 0 ] && ACTION+="/Push"
 ACTION=${ACTION#/}
 
 ## -- Main: -------------------------------------------------------------
@@ -619,8 +622,26 @@ DOCKER_LOGIN
 if [ $BUILD -ne 0 ]; then
     # Incremental builds:
     #SET_picture_paths $IMAGE_TAG
+    #### COLOUR="blue"
+    #### PICTURE_TYPE="kubernetes"
+    #### export PICTURE_BASE="${PICTURE_TYPE}_${COLOUR}"
+    #### export PICTURE_PATH_BASE="static/img/${PICTURE_BASE}"
+    #### export PICTURE_COLOUR="${COLOUR}"
     template_go_src main.go main.build.go
     #check_build main.build.go
+    [ $LOCAL -ne 0 ] && {
+        #GOLANG_IMAGE=golang:1.17.4-alpine3.1
+        GOLANG_IMAGE=golang:alpine
+        #docker run --rm $GOLANG_IMAGE CGO_ENABLED=0 go build -a -o ./demo-binary main.build.go
+        #docker run --rm -e CGO_ENABLED=0 $GOLANG_IMAGE go build -a -o ./demo-binary main.build.go
+        #### ENVS="-e PICTURE_BASE=$PICTURE_BASE -e PICTURE_PATH_BASE=$PICTURE_PATH_BASE -e PICTURE_COLOUR=$PICTURE_COLOUR -e CGO_ENABLED=0"
+        ENVS="-e CGO_ENABLED=0"
+
+        set -x
+        docker run -v $PWD:/mnt --rm $ENVS golang:alpine go build -a -o /mnt/demo-binary /mnt/main.build.go
+        set +x
+        exit
+    }
     docker_build_static_base
     docker_build_dynamic_base
 
