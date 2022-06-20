@@ -5,18 +5,19 @@ package main
 //   Add verbose template index.html.tmpl.verbose.tmpl to handle extra info
 
 import (
-	"flag"
-	"fmt"
-	"html/template"
-	"log"
-	"net"
-	"net/http"
-	"os"
-	"strings"
-	"io/ioutil"
-	"time"    // Used for Sleep
-	// "strconv" // Used to get integer from string
-	// "encoding/json"
+    "flag"
+    "fmt"
+    "html/template"
+    "log"
+    "net"
+    "net/http"
+    "os"
+    "strings"
+    "io/ioutil"
+    "bytes"   // for bytes.Buffer
+    "time"    // Used for Sleep
+    // "strconv" // Used to get integer from string
+    // "encoding/json"
 )
 
 const (
@@ -44,15 +45,15 @@ var (
     IMAGE_NAME_VERSION = os.Getenv("IMAGE_NAME_VERSION")
     IMAGE_VERSION      = os.Getenv("IMAGE_VERSION")
     DATE_VERSION       = os.Getenv("DATE_VERSION")
-    logo_base_path = os.Getenv("PICTURE_PATH_BASE")
-    logo_path      = logo_base_path + ".txt"
+    logo_base_path     = os.Getenv("PICTURE_PATH_BASE")
+    logo_path          = logo_base_path + ".txt"
 
     colour_text=colour_me_white
     text_colour    = os.Getenv("PICTURE_COLOUR")
 
-    mux        = http.NewServeMux()
     listenAddr string = ":80"
-
+    //testModeUrl   string = "XX"
+    testModeUrl   string = ""
     verbose    bool
     headers    bool
 
@@ -121,18 +122,18 @@ func loadTemplate(filename string) (*template.Template, error) {
 // Do case insensitive match - of substr in s
 //
 func CaseInsensitiveContains(s, substr string) bool {
-        s, substr = strings.ToUpper(s), strings.ToUpper(substr)
-        return strings.Contains(s, substr)
+    s, substr = strings.ToUpper(s), strings.ToUpper(substr)
+    return strings.Contains(s, substr)
 }
 
 // -----------------------------------
-// func: formatRequestHandler
+// func: route_echoRequest
 //
 // generates ascii representation of a request
 //
 // From: https://medium.com/doing-things-right/pretty-printing-http-requests-in-golang-a918d5aaa000
 //
-func formatRequestHandler(w http.ResponseWriter, r *http.Request) {
+func route_echoRequest(w http.ResponseWriter, r *http.Request) {
     formattedReq := formatRequest(r)
 
     fmt.Fprintf(w, "%s", formattedReq)
@@ -177,11 +178,11 @@ func formatRequest(r *http.Request) string {
 }
 
 // -----------------------------------
-// func: statusCodeTest
+// func: route_statusCodeTest
 //
 // Example handler - sets status code
 //
-func statusCodeTest(w http.ResponseWriter, req *http.Request) {
+func route_statusCodeTest(w http.ResponseWriter, req *http.Request) {
     //m := map[string]string{
         //"foo": "bar",
     //}
@@ -197,12 +198,13 @@ func statusCodeTest(w http.ResponseWriter, req *http.Request) {
 }
 
 // -----------------------------------
-// func: index
+// func: route_index
 //
 // Main index handler - handles different requests
 //
-func index(w http.ResponseWriter, r *http.Request) {
-    log.Printf("Request from '%s' (%s)\n", r.Header.Get("X-Forwarded-For"), r.URL.Path)
+func route_index(w http.ResponseWriter, r *http.Request) {
+    currentTime := time.Now()
+    log.Printf("%s: Request from '%s' (%s)\n", currentTime.String(), r.Header.Get("X-Forwarded-For"), r.URL.Path)
 
     switch text_colour {
         case "black":   colour_text=colour_me_black
@@ -227,38 +229,59 @@ func index(w http.ResponseWriter, r *http.Request) {
         os.Exit(3)
     }
 
+    // Get user-agent: if text-browser, e.g. wget/curl/httpie/lynx/elinks return ascii-text image:
+    //
+
+    userAgent        := r.Header.Get("User-Agent")
+    from             := r.RemoteAddr
+    fwd              := r.Header.Get("X-Forwarded-For")
+    formattedRequest := formatRequest(r)
+    url              := r.URL.Path
+
+    respBody, byteContent, contentType := getResponseBody( url, userAgent, formattedRequest, from, fwd)
+    if contentType != "" {
+        // w.Header().Set("Content-Type", "text/txt")
+       w.Header().Set( "Content-Type", contentType )
+         w.Write([]byte( byteContent ))
+    }
+
+    fmt.Fprintf(w, respBody)
+}
+
+// -----------------------------------
+// func: getResponseBody
+//
+// Main index handler - handles different requests
+//
+func getResponseBody(url string, userAgent string, formattedReq string, from string, fwd string) (string, []byte, string) {
+
+    byteContent := []byte("")
+
+    contentType  := ""
+
     hostName, err := os.Hostname()
     if err != nil {
         hostName = "unknown"
     }
 
-    // Get user-agent: if text-browser, e.g. wget/curl/httpie/lynx/elinks return ascii-text image:
-    //
-    userAgent := r.Header.Get("User-Agent")
-
     // Enable/disable headers:
-    if r.URL.Path == "/headers"    { headers = true }
-    if r.URL.Path == "/no-headers" { headers = false }
+    if url == "/headers"    { headers = true }
+    if url == "/no-headers" { headers = false }
 
-    multilineOP := (r.URL.Path != "/1line") && (r.URL.Path != "/1l") && (r.URL.Path != "/1")
+    multilineOP := (url != "/1line") && (url != "/1l") && (url != "/1")
 
-    networkInfo := ""
-    formattedReq   := ""
+    networkInfo  := ""
     if verbose && multilineOP {
         networkInfo = getNetworkInfo()
     }
-    if headers {
-        formattedReq   = formatRequest(r) + "\n"
+    if !headers {
+        formattedReq   = ""
     }
 
-    // TODO: bad
-    // if CaseInsensitiveContains(IMAGE_VERSION, "bad") ||
-    // }
-
-    hostType := ""
-    imageInfo := ""
+    hostType      := ""
+    imageInfo     := ""
     htmlPageTitle := ""
-    msg := ""
+    msg           := ""
     if message != "" { msg = "'" + message + "'" }
 
     if IMAGE_NAME_VERSION == "" {
@@ -275,71 +298,73 @@ func index(w http.ResponseWriter, r *http.Request) {
        CaseInsensitiveContains(userAgent, "http") ||
        CaseInsensitiveContains(userAgent, "links") ||
        CaseInsensitiveContains(userAgent, "lynx") {
-        w.Header().Set("Content-Type", "text/txt")
+        contentType = "text/txt"
 
         logo_path  =  logo_base_path + ".txt"
 
-        fmt.Fprintf(w, "%s", formattedReq)
-        var content []byte
+        //fmt.Fprintf(w, "%s", formattedReq)
+        //?
+        retStr := formattedReq
+        //retStr := fmt.Sprintf("%s", formattedReq)
 
-	if r.URL.Path == "/map" || r.URL.Path == "/MAP" {
-	    content, _ = ioutil.ReadFile( MAP_ASCII_ART )
+        if url == "/map" || url == "/MAP" {
+            byteContent, _ = ioutil.ReadFile( MAP_ASCII_ART )
         } else {
-	    content, _ = ioutil.ReadFile( logo_path )
+            //fmt.Printf("DEBUG: logo_path='%s'\n", logo_path)
+            if multilineOP {
+                byteContent, _ = ioutil.ReadFile( logo_path )
+            }
         }
 
         myIP := GetOutboundIP()
-        from := r.RemoteAddr
-        fwd := r.Header.Get("X-Forwarded-For")
-
-        d := " "
-	if multilineOP {
-	    w.Write([]byte(content))
+        d    := " "
+        if multilineOP {
             d = "\n"
         }
 
         if fwd != "" { fwd=" [" + fwd + "]" }
 
-	p1 := fmt.Sprintf("%s %s%s@%s%s%s %simage%s%s " + "Request from %s%s%s" + "%s%s" + "%s",
-	        hostType, colour_me_yellow, hostName, myIP, d, colour_me_normal,
-		colour_text, colour_me_normal, imageInfo,
-		from, fwd, d,
-		networkInfo, d,
-	        msg)
+        // MESSAGE
+        p1 := fmt.Sprintf("%s %s%s@%s%s " + "%simage%s%s " + "Request from %s%s" + "%s%s" + "%s",
+            hostType, colour_me_yellow, hostName, myIP, colour_me_normal,
+            colour_text, colour_me_normal, imageInfo,
+            from, fwd,
+            networkInfo, d,
+            msg)
 
-        fmt.Fprintf(w, p1)
-        if !multilineOP {
-            fmt.Fprintf(w, "\n")
-        }
+        retStr = retStr + p1
+        if !multilineOP { retStr += "\n"; }
 
-	return
+        //fmt.Printf("byteContent='%s'\n", string(byteContent) )
+        return retStr, byteContent, contentType
     }
 
     logo_path  =  logo_base_path + ".png"
 
-    // else return html as normal ...
-        //
     templateFile := "templates/index.html.tmpl"
 
     template, err := loadTemplate(templateFile)
     if err != nil {
         log.Printf("error loading template from %s: %s\n", templateFile, err)
-        return
+        return "", []byte(""), contentType
     }
 
     cnt := &Content{
-        Title:    htmlPageTitle,
-        Hosttype: hostType,
-        Hostname: hostName,
-        Message:  message,
-        PNG:      logo_path,
-        UsingImage: imageInfo,
+        Title:        htmlPageTitle,
+        Hosttype:     hostType,
+        Hostname:     hostName,
+        Message:      message,
+        PNG:          logo_path,
+        UsingImage:   imageInfo,
         NetworkInfo:  networkInfo,
-        FormattedReq:  formattedReq,
+        FormattedReq: formattedReq,
     }
 
-        // apply Context values to template
-    template.Execute(w, cnt)
+    // apply Context values to template
+    var tpl bytes.Buffer
+    template.Execute(&tpl, cnt)
+
+    return tpl.String(), byteContent, contentType
 }
 
 func getNetworkInfo() string {
@@ -357,27 +382,29 @@ func getNetworkInfo() string {
                     ip = v.IP
                 case *net.IPAddr:
                     ip = v.IP
-                }
+            }
             // process IP address
-            ret = fmt.Sprintf("%sip %s\n", ret, ip.String())
+            //ret = fmt.Sprintf("%sip %s\n", ret, ip.String())
+            ret = fmt.Sprintf("%sip %s", ret, ip.String())
         }
     }
-    ret = fmt.Sprintf("%slistening on port %s\n", ret, listenAddr)
+    //ret = fmt.Sprintf("%slistening on port %s\n", ret, listenAddr)
+    ret = fmt.Sprintf("%slistening on port %s", ret, listenAddr)
 
     return ret
 }
 
 // -----------------------------------
-// func: ping
+// func: route_ping
 //
 // Ping handler - echos back remote address
 //
-func ping(w http.ResponseWriter, r *http.Request) {
-    resp := fmt.Sprintf("ping: hello %s\n", r.RemoteAddr)
+func route_ping(w http.ResponseWriter, r *http.Request) {
+    resp := fmt.Sprintf("route_ping: hello %s\n", r.RemoteAddr)
     w.Write([]byte(resp))
 }
 
-func showVersion(w http.ResponseWriter, r *http.Request) {
+func route_showVersion(w http.ResponseWriter, r *http.Request) {
     resp := fmt.Sprintf("version: %s [%s]\n", DATE_VERSION, IMAGE_NAME_VERSION)
     w.Write([]byte(resp))
 }
@@ -410,10 +437,15 @@ func main() {
 
     f.BoolVar(&version,      "version", false,  "Show version and exit")
 
+    f.StringVar(&testModeUrl, "testmode", "", "testmode (url)")
+    //f.StringVar(&testModeUrl, "t",        testModeUrl, "testmode (url)")
+
     f.BoolVar(&verbose,      "verbose",false,   "verbose (false)")
     f.BoolVar(&verbose,      "v",      false,   "verbose (false)")
     f.BoolVar(&headers,      "headers",false,   "show headers (false)")
     f.BoolVar(&headers,      "h",      false,   "show headers (false)")
+
+    // fmt.Printf("HELLO WORLD\n"); os.Exit(0)
 
     // visitor := func(a *flag.Flag) { fmt.Println(">", a.Name, "value=", a.Value); }
     // fmt.Println("Visit()"); f.Visit(visitor) fmt.Println("VisitAll()")
@@ -427,6 +459,27 @@ func main() {
     } else {
         f.Parse(os.Args[1:])
     }
+
+    //fmt.Printf("listenAddr='" + listenAddr + "'\n")
+    if testModeUrl != "" {
+        //logo_base_path =
+        //fmt.Printf("testModeUrl='" + testModeUrl + "'\n")
+        logo_base_path = "static/img/kubernetes_blue"
+
+        userAgent := "curl"
+        from      := "<from-addr>"
+        fwd       := "<Xfwd-addr>"
+        respBody, byteContent, contentType := getResponseBody(testModeUrl, userAgent, "", from, fwd)
+        if contentType == "text/txt" {
+           fmt.Printf("Content-Type: text/txt\n\n")
+        }
+        // MEESSED UP WITH "MISSING" strings: fmt.Printf(byteContent.String())
+        //fmt.Printf("byteContent='%s'\n", string(byteContent) )
+        fmt.Printf("%s\n", string(byteContent) )
+        fmt.Printf( respBody )
+        os.Exit(0)
+    }
+
     // fmt.Println("Visit() after Parse()"); f.Visit(visitor);
     // fmt.Println("VisitAll() after Parse()") f.VisitAll(visitor)
 
@@ -457,41 +510,52 @@ func main() {
     // ---- setup routes: -------------------------------------------------
 
     // ---- act as static web server on /static/*
-    mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
+    if testModeUrl == "" {
+        mux := http.NewServeMux()
 
-    mux.HandleFunc("/", index)
-    mux.HandleFunc("/test", statusCodeTest)
+        mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 
-    mux.HandleFunc("/version", showVersion)
+        mux.HandleFunc("/", route_index)
+        mux.HandleFunc("/test", route_statusCodeTest)
 
-    mux.HandleFunc("/echo", formatRequestHandler)
-    mux.HandleFunc("/ECHO", formatRequestHandler)
+        mux.HandleFunc("/version", route_showVersion)
 
-    mux.HandleFunc("/ping", ping)
-    mux.HandleFunc("/PING", ping)
+        mux.HandleFunc("/echo", route_echoRequest)
+        mux.HandleFunc("/ECHO", route_echoRequest)
 
-    mux.HandleFunc("/MAP", index)
-    mux.HandleFunc("/map", index)
+        mux.HandleFunc("/ping", route_ping)
+        mux.HandleFunc("/PING", route_ping)
 
-    if (readinessSecs > 0) {
-        //  Artificially sleep to simulate application initialization:
-        delay := time.Duration(readinessSecs) * 1000 * time.Millisecond
-        log.Printf("[readiness] Sleeping <%d> secs\n", readinessSecs)
-        time.Sleep(delay)
+        mux.HandleFunc("/MAP", route_index)
+        mux.HandleFunc("/map", route_index)
+
+        //mux.HandleFunc("/metrics", route_metrics)
+
+        if (readinessSecs > 0) {
+            //  Artificially sleep to simulate application initialization:
+            delay := time.Duration(readinessSecs) * 1000 * time.Millisecond
+            log.Printf("[readiness] Sleeping <%d> secs\n", readinessSecs)
+            time.Sleep(delay)
         }
-    if readyanddie {
-        log.Fatal("Dying once ready")
-        os.Exit(3)
-    }
+        if readyanddie {
+            log.Fatal("Dying once ready")
+            os.Exit(3)
+        }
 
-    if verbose {
-        log.Printf("Default ascii art <%s>\n", logo_path)
-    }
+        if verbose {
+            log.Printf("Default ascii art <%s>\n", logo_path)
+        }
 
-    log.Printf("Now listening on %s\n", listenAddr)
-    if err := http.ListenAndServe(listenAddr, mux); err != nil {
-        log.Fatalf("error serving: %s", err)
+        hostname, err := os.Hostname()
+        if err != nil { hostname="HOST"; }
+
+        currentTime := time.Now()
+        log.Printf("%s [%s]: Now listening on %s\n", currentTime.String(), hostname, listenAddr)
+        if err := http.ListenAndServe(listenAddr, mux); err != nil {
+            log.Fatalf("error serving: %s", err)
+        }
     }
 
     // started=now
 }
+
