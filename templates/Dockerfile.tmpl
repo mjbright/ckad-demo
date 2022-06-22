@@ -1,6 +1,7 @@
 
 # -- build stage ---------------------------------------------
-FROM golang:alpine AS __BUILD_ENV_TARGET__
+#FROM golang:alpine AS __BUILD_ENV_TARGET__
+FROM golang:1.17.4-alpine3.15 AS __BUILD_ENV_TARGET__
 
 ADD . /src
 

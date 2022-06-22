@@ -38,6 +38,9 @@ const (
 )
 
 var (
+    // Used for metrics_demoapp_age:
+    start_time  int64 =  0
+
     // -- defaults: can be overridden by cli ------------
     // -- defaults: to be overridden by env/cli/cm ------
     message            = ""
@@ -51,8 +54,7 @@ var (
     colour_text=colour_me_white
     text_colour    = os.Getenv("PICTURE_COLOUR")
 
-    listenAddr string = ":80"
-    //testModeUrl   string = "XX"
+    listenAddr    string = ":80"
     testModeUrl   string = ""
     verbose    bool
     headers    bool
@@ -66,6 +68,11 @@ var (
     readyanddie bool
 
     version  bool
+
+    // Prometheus metrics:
+    metrics_demoapp_requests       = 0
+    metrics_demoapp_response_bytes = 0
+    metrics_demoapp_age            = int64(0)
 )
 
 type (
@@ -134,9 +141,11 @@ func CaseInsensitiveContains(s, substr string) bool {
 // From: https://medium.com/doing-things-right/pretty-printing-http-requests-in-golang-a918d5aaa000
 //
 func route_echoRequest(w http.ResponseWriter, r *http.Request) {
-    formattedReq := formatRequest(r)
+    respBody := formatRequest(r)
+    fmt.Fprintf(w, "%s", respBody)
 
-    fmt.Fprintf(w, "%s", formattedReq)
+    metrics_demoapp_requests++
+    metrics_demoapp_response_bytes+=len(respBody)
     return
 }
 
@@ -183,18 +192,47 @@ func formatRequest(r *http.Request) string {
 // Example handler - sets status code
 //
 func route_statusCodeTest(w http.ResponseWriter, req *http.Request) {
-    //m := map[string]string{
-        //"foo": "bar",
-    //}
+    //m := map[string]string{ "foo": "bar", }
     //w.Header().Add("Content-Type", "application/json")
-
     //num := http.StatusCreated
     num := http.StatusInternalServerError
 
     w.WriteHeader( num )
 
     //_ = json.NewEncoder(w).Encode(m)
-    fmt.Fprintf(w, "\nWriting status code <%d>\n", num)
+    respBody := fmt.Sprintf("\nWriting status code <%d>\n", num)
+    fmt.Fprintf(w, respBody)
+    metrics_demoapp_requests++
+    metrics_demoapp_response_bytes+=len(respBody)
+}
+
+// -----------------------------------
+// func: route_metrics
+//
+// Prometheus Metrics handler
+//
+func route_metrics(w http.ResponseWriter, r *http.Request) {
+    currentTime := time.Now()
+    now_sec     := currentTime.Unix()
+    metrics_demoapp_age = now_sec - start_time
+
+    templateStr := `# HELP demoapp_age The age in seconds of this instance
+# TYPE demoapp_age counter
+demoapp_age = %v
+# HELP demoapp_requests The total number of processed events
+# TYPE demoapp_requests counter
+demoapp_requests = metrics_demoapp_requests
+# HELP demoapp_requests The total number of processed events
+# TYPE demoapp_requests counter
+demoapp_requests = %d
+# HELP demoapp_response_bytes The total number of processed events
+# TYPE demoapp_response_bytes counter
+demoapp_response_bytes = %d
+`
+    respBody := fmt.Sprintf(templateStr, metrics_demoapp_age, metrics_demoapp_requests, metrics_demoapp_response_bytes)
+    // don't count metrics requests: metrics_demoapp_requests++
+    // don't count metrics requests: metrics_demoapp_response_bytes+=len(respBody)
+    fmt.Fprintf(w, respBody)
 }
 
 // -----------------------------------
@@ -245,6 +283,8 @@ func route_index(w http.ResponseWriter, r *http.Request) {
          w.Write([]byte( byteContent ))
     }
 
+    metrics_demoapp_requests++
+    metrics_demoapp_response_bytes+=len(respBody)
     fmt.Fprintf(w, respBody)
 }
 
@@ -400,13 +440,19 @@ func getNetworkInfo() string {
 // Ping handler - echos back remote address
 //
 func route_ping(w http.ResponseWriter, r *http.Request) {
-    resp := fmt.Sprintf("route_ping: hello %s\n", r.RemoteAddr)
-    w.Write([]byte(resp))
+    respBody := fmt.Sprintf("route_ping: hello %s\n", r.RemoteAddr)
+
+    metrics_demoapp_requests++
+    metrics_demoapp_response_bytes+=len(respBody)
+    w.Write([]byte(respBody))
 }
 
 func route_showVersion(w http.ResponseWriter, r *http.Request) {
-    resp := fmt.Sprintf("version: %s [%s]\n", DATE_VERSION, IMAGE_NAME_VERSION)
-    w.Write([]byte(resp))
+    respBody := fmt.Sprintf("version: %s [%s]\n", DATE_VERSION, IMAGE_NAME_VERSION)
+
+    metrics_demoapp_requests++
+    metrics_demoapp_response_bytes+=len(respBody)
+    w.Write([]byte(respBody))
 }
 
 // -----------------------------------
@@ -415,20 +461,22 @@ func route_showVersion(w http.ResponseWriter, r *http.Request) {
 //
 //
 func main() {
+    start_time = time.Now().Unix()
+
     f := flag.NewFlagSet("flag", flag.ExitOnError)
 
     f.StringVar(&listenAddr, "listen", listenAddr, "listen address")
-
+    f.StringVar(&listenAddr, "l",      listenAddr, "listen address")
     f.BoolVar(&die,         "die", false,   "die before live (false)")
     f.IntVar(&dieafter,     "dieafter", -1, "die after (NEVER)")
 
-    f.BoolVar(&liveanddie,   "liveanddie",false,   "die once live (false)")
-    f.IntVar(&livenessSecs,  "live",   0,   "liveness delay (0 sec)")
-    f.IntVar(&livenessSecs,  "l",      0,   "liveness delay (0 sec)")
+    f.BoolVar(&liveanddie,   "Liveanddie",false,   "die once live (false)")
+    f.IntVar(&livenessSecs,  "Live",   0,   "liveness delay (0 sec)")
+    f.IntVar(&livenessSecs,  "L",      0,   "liveness delay (0 sec)")
 
-    f.BoolVar(&readyanddie,  "readyanddie",false,   "die once ready (false)")
-    f.IntVar(&readinessSecs, "ready",  0,   "readiness delay (0 sec)")
-    f.IntVar(&readinessSecs, "r",      0,   "readiness delay (0 sec)")
+    f.BoolVar(&readyanddie,  "Readyanddie",false,   "die once ready (false)")
+    f.IntVar(&readinessSecs, "Ready",  0,   "readiness delay (0 sec)")
+    f.IntVar(&readinessSecs, "R",      0,   "readiness delay (0 sec)")
 
     //f.StringVar(&IMAGE_NAME_VERSION, "image", IMAGE_NAME_VERSION, "image")
     //f.StringVar(&IMAGE_NAME_VERSION, "i", IMAGE_NAME_VERSION, "image")
@@ -459,6 +507,14 @@ func main() {
     } else {
         f.Parse(os.Args[1:])
     }
+
+    // allow :<port> or just <port> argument:
+    //fmt.Println(listenAddr)
+    if !strings.Contains(listenAddr, ":") {
+        listenAddr = ":" + listenAddr
+        //fmt.Println("==> :"+listenAddr)
+    }
+    //fmt.Println(listenAddr)
 
     //fmt.Printf("listenAddr='" + listenAddr + "'\n")
     if testModeUrl != "" {
@@ -529,7 +585,7 @@ func main() {
         mux.HandleFunc("/MAP", route_index)
         mux.HandleFunc("/map", route_index)
 
-        //mux.HandleFunc("/metrics", route_metrics)
+        mux.HandleFunc("/metrics", route_metrics)
 
         if (readinessSecs > 0) {
             //  Artificially sleep to simulate application initialization:
@@ -549,8 +605,9 @@ func main() {
         hostname, err := os.Hostname()
         if err != nil { hostname="HOST"; }
 
-        currentTime := time.Now()
-        log.Printf("%s [%s]: Now listening on %s\n", currentTime.String(), hostname, listenAddr)
+        //currentTime := time.Now()
+        //log.Printf("%s [%s]: Now listening on port %s\n", currentTime.String(), hostname, listenAddr)
+        log.Printf("[%s]: Now listening on port %s\n", hostname, listenAddr)
         if err := http.ListenAndServe(listenAddr, mux); err != nil {
             log.Fatalf("error serving: %s", err)
         }

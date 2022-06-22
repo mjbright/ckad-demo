@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # Usage:
-# ./build.sh --full # -f: Build all repos/tags and test and push images ...
+# ./build.sh --local # -l: Build local binary for none-container testing
+# ./build.sh       l #     Build and test a single Docker image
+# ./build.sh --full  # -f: Build all repos/tags and test and push images ...
 # ./build.sh --build # -b: Build and test all repos/tags
 
 RESET_ANSI='\033[0m' 
@@ -87,7 +89,7 @@ function check_build {
 
     echo; echo "---- Testing  binary ----------"
     LISTEN=127.0.0.1:8080
-    ./demo-binary --listen $LISTEN &
+    ./demo-binary -l $LISTEN &
     [ $? -ne 0 ] && die "Failed to launch binary"
     PID=$!
     [ -z "$PID" ] && die "Failed to get PID"
@@ -202,21 +204,25 @@ function DOCKER_test_image {
     docker rm --force name $CONTAINERNAME 2>/dev/null
 
     # Use default command:
-    #docker run --rm -d --name $CONTAINERNAME -p 8181:$EXPOSE_PORT $IMAGE_TAG $APP_BIN
     docker image ls $IMAGE_TAG | AWK_IMAGE_TAG | grep $IMAGE_TAG || die "No such image (not pulling) <$IMAGE_TAG>"
     #die "OK??"
-    CMD="docker run --rm -d --name $CONTAINERNAME -p 8181:$PORT $IMAGE_TAG"
-    echo "---- $CMD"
+    #CMD="docker run --rm -d --name $CONTAINERNAME -p 8181:$PORT $IMAGE_TAG"
+    CMD="docker run -d --name $CONTAINERNAME -p 8181:$PORT $IMAGE_TAG"
+    echo "---- [DOCKER_test_image] $CMD"
     $CMD
-
     CONTAINERID=$(docker ps -ql)
 
     #echo -n "Sample asciitext lines: " $( curl -sL 127.0.0.1:8181/ | head -2 )
     echo "Sample asciitext lines: " $( curl -sL 127.0.0.1:8181/ | head -2 )
     echo -ne $RESET_ANSI
 
-    curl -sL 127.0.0.1:8181/1 ||
-      die "Failed to interrogate container <$CONTAINERID> $CONTAINERNAME from image <$IMAGE_TAG>"
+    curl -sL 127.0.0.1:8181/1 || {
+      docker ps -a | grep $CONTAINERID
+      docker logs $CONTAINERID
+      die "---- [DOCKER_test_image] Failed to interrogate container <$CONTAINERID> $CONTAINERNAME from image <$IMAGE_TAG>"
+    }
+    docker ps -a | grep $CONTAINERID &&
+        docker rm -f $CONTAINERID
     #ATEXT_LINE=$(curl -sL 127.0.0.1:8181/ | head -10 | tail -1)
     #echo "Sample asciitext line: $ATEXT_LINE"
 
@@ -284,11 +290,10 @@ function kubernetes_test_image {
     let DELAY=LIVE+READY
     [ $DELAY -ne 0 ] && { echo "Waiting for live/ready $LIVE/$READY secs"; sleep $DELAY; }
 
-    #kubectl run --rm --generator=run-pod/v1 --image=mjbright/ckad-demo:1 testerckad -it -- --listen 127.0.0.1:80
     PODNAME=kubetest-$ITAG
     kubectl delete pod $PODNAME 2>/dev/null
     # Use default command:
-    #TIME kubectl run --generator=run-pod/v1 --image=$IMAGE_TAG $PODNAME $APP_BIN -- --listen 127.0.0.1:80
+    #TIME kubectl run --generator=run-pod/v1 --image=$IMAGE_TAG $PODNAME $APP_BIN -- -l 127.0.0.1:80
     TIME kubectl run --generator=run-pod/v1 --image=$IMAGE_TAG $PODNAME
 
     MAX_LOOPS=10
@@ -360,7 +365,7 @@ function check_vars_set {
 }
 
 function template_dockerfile {
-    # e.g. template_dockerfile mjbright/ckad-demo:1 scratch 80 ["/app/demo-binary","--listen",":80","-l","0","-r","0"]
+    # e.g. template_dockerfile mjbright/ckad-demo:1 scratch 80 ["/app/demo-binary","-l","80","-L","0","-R","0"]
     [ $VERBOSE -ne 0 ] && echo "FN: template_dockerfile $*"
     IMAGE_TAG=$1; shift
     FROM_IMAGE=$1; shift
@@ -521,19 +526,19 @@ function TREAT_REPOS {
             PORT=80
 
             IMAGE="${REPO}:${TAG}"
-            CMD="[\"$APP_BIN\",\"--listen\",\":$PORT\",\"-l\",\"$LIVE\",\"-r\",\"$READY\"]"
+            CMD="[\"$APP_BIN\",\"-l\",\"$PORT\",\"-L\",\"$LIVE\",\"-R\",\"$READY\"]"
             [ $BUILD -ne 0 ] && DOCKER_build_image $IMAGE scratch $PORT $CMD
             [ $TEST  -ne 0 ] && DOCKER_test_image  $IMAGE scratch $PORT $CMD
             [ $PUSH  -ne 0 ] && DOCKER_push_image  $IMAGE scratch $PORT $CMD
 
             IMAGE="${REPO}:alpine${TAG}"
-            CMD="[\"$APP_BIN\",\"--listen\",\":$PORT\",\"-l\",\"$LIVE\",\"-r\",\"$READY\"]"
+            CMD="[\"$APP_BIN\",\"-l\",\"$PORT\",\"-L\",\"$LIVE\",\"-R\",\"$READY\"]"
             [ $BUILD -ne 0 ] && DOCKER_build_image $IMAGE alpine $PORT $CMD
             [ $TEST  -ne 0 ] && DOCKER_test_image  $IMAGE alpine $PORT $CMD
             [ $PUSH  -ne 0 ] && DOCKER_push_image  $IMAGE alpine $PORT $CMD
 
             ## IMAGE="${REPO}:bad${TAG}"
-            ## build_and_push $IMAGE alpine  $PORT  "--listen :$PORT -l 10 -r 10 -i $IMAGE"
+            ## build_and_push $IMAGE alpine  $PORT  "-l $PORT -L 10 -R 10 -i $IMAGE"
         done
     done
 }
@@ -630,15 +635,12 @@ if [ $BUILD -ne 0 ]; then
     template_go_src main.go main.build.go
     #check_build main.build.go
     [ $LOCAL -ne 0 ] && {
-        #GOLANG_IMAGE=golang:1.17.4-alpine3.1
         GOLANG_IMAGE=golang:alpine
-        #docker run --rm $GOLANG_IMAGE CGO_ENABLED=0 go build -a -o ./demo-binary main.build.go
-        #docker run --rm -e CGO_ENABLED=0 $GOLANG_IMAGE go build -a -o ./demo-binary main.build.go
-        #### ENVS="-e PICTURE_BASE=$PICTURE_BASE -e PICTURE_PATH_BASE=$PICTURE_PATH_BASE -e PICTURE_COLOUR=$PICTURE_COLOUR -e CGO_ENABLED=0"
         ENVS="-e CGO_ENABLED=0"
 
         set -x
-        docker run -v $PWD:/mnt --rm $ENVS golang:alpine go build -a -o /mnt/demo-binary /mnt/main.build.go
+          docker run -v $PWD:/mnt --rm $ENVS golang:alpine go build -a -o /mnt/demo-binary /mnt/main.build.go
+          ls -arhl demo-binary
         set +x
         exit
     }
