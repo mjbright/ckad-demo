@@ -218,18 +218,18 @@ func route_metrics(w http.ResponseWriter, r *http.Request) {
 
     templateStr := `# HELP demoapp_age The age in seconds of this instance
 # TYPE demoapp_age counter
-demoapp_age = %v
+demoapp_age{image="%s"} %v
 # HELP demoapp_requests The total number of processed events
 # TYPE demoapp_requests counter
-demoapp_requests = metrics_demoapp_requests
-# HELP demoapp_requests The total number of processed events
-# TYPE demoapp_requests counter
-demoapp_requests = %d
+demoapp_requests{image="%s"} %d
 # HELP demoapp_response_bytes The total number of processed events
 # TYPE demoapp_response_bytes counter
-demoapp_response_bytes = %d
+demoapp_response_bytes{image="%s"} %d
 `
-    respBody := fmt.Sprintf(templateStr, metrics_demoapp_age, metrics_demoapp_requests, metrics_demoapp_response_bytes)
+    respBody := fmt.Sprintf(templateStr,
+        IMAGE_NAME_VERSION, metrics_demoapp_age,
+        IMAGE_NAME_VERSION, metrics_demoapp_requests,
+        IMAGE_NAME_VERSION, metrics_demoapp_response_bytes)
     // don't count metrics requests: metrics_demoapp_requests++
     // don't count metrics requests: metrics_demoapp_response_bytes+=len(respBody)
     fmt.Fprintf(w, respBody)
@@ -241,8 +241,9 @@ demoapp_response_bytes = %d
 // Main index handler - handles different requests
 //
 func route_index(w http.ResponseWriter, r *http.Request) {
-    currentTime := time.Now()
-    log.Printf("%s: Request from '%s' (%s)\n", currentTime.String(), r.Header.Get("X-Forwarded-For"), r.URL.Path)
+    //currentTime := time.Now()
+    //log.Printf("%s: Request from '%s' (%s)\n", currentTime.String(), r.Header.Get("X-Forwarded-For"), r.URL.Path)
+    log.Printf(": Request from '%s' (%s)\n", r.Header.Get("X-Forwarded-For"), r.URL.Path)
 
     switch text_colour {
         case "black":   colour_text=colour_me_black
