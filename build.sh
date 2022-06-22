@@ -122,20 +122,23 @@ function set_build_vars {
     esac
 }
 
+# Build a Docker image containing a statically-linked binary of the demo-app:
 function docker_build_static_base {
     [ $VERBOSE -ne 0 ] && echo "FN: docker_build_static_base $*"
     set_build_vars "static"
-    template_dockerfile "IMAGE_TAG" "$FROM_IMAGE" "EXPOSE_PORT" "TEMPLATE_CMD" "DATE_VERSION" "IMAGE_NAME_VERSION" "IMAGE_VERSION" "PICTURE_PATH_BASE" $BUILD_ENV_TARGET
+
+    template_dockerfile "$IMAGE_TAG" "$FROM_IMAGE" "$EXPOSE_PORT" "$TEMPLATE_CMD" "$DATE_VERSION" "$IMAGE_NAME_VERSION" "$IMAGE_VERSION" "$PICTURE_PATH_BASE" "$BUILD_ENV_TARGET"
     TIME docker pull $STAGE1_IMAGE || true
 
     # Build the compile stage:
     TIME $DOCKER_BUILD --target $BUILD_ENV_TARGET --cache-from=$STAGE1_IMAGE --tag $STAGE1_IMAGE . || die "Build failed" 
 }
 
+# Build a Docker image containing a dynamically-linked binary of the demo-app:
 function docker_build_dynamic_base {
     [ $VERBOSE -ne 0 ] && echo "FN: docker_build_dynamic_base $*"
     set_build_vars "dynamic"
-    template_dockerfile "IMAGE_TAG" "$FROM_IMAGE" "EXPOSE_PORT" "TEMPLATE_CMD" "DATE_VERSION" "IMAGE_NAME_VERSION" "IMAGE_VERSION" "PICTURE_PATH_BASE" $BUILD_ENV_TARGET
+    template_dockerfile "$IMAGE_TAG" "$FROM_IMAGE" "$EXPOSE_PORT" "$TEMPLATE_CMD" "$DATE_VERSION" "$IMAGE_NAME_VERSION" "$IMAGE_VERSION" "$PICTURE_PATH_BASE" "$BUILD_ENV_TARGET"
     TIME docker pull $STAGE1_IMAGE || true
 }
 
@@ -154,7 +157,7 @@ function docker_build {
     SET_picture_paths $IMAGE_TAG
     set_build_vars $FROM_IMAGE
     [ "$TEMPLATE_CMD" = "CMD" ] && die "build: Missing command in <$TEMPLATE_CMD>"
-    template_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT "$TEMPLATE_CMD" $DATE_VERSION $IMAGE_NAME_VERSION $IMAGE_VERSION $PICTURE_PATH_BASE $BUILD_ENV_TARGET
+    template_dockerfile "$IMAGE_TAG" "$FROM_IMAGE" "$EXPOSE_PORT" "$TEMPLATE_CMD" "$DATE_VERSION" "$IMAGE_NAME_VERSION" "$IMAGE_VERSION" "$PICTURE_PATH_BASE" "$BUILD_ENV_TARGET"
 
     #set -euo pipefail
 
@@ -221,8 +224,6 @@ function DOCKER_test_image {
       docker logs $CONTAINERID
       die "---- [DOCKER_test_image] Failed to interrogate container <$CONTAINERID> $CONTAINERNAME from image <$IMAGE_TAG>"
     }
-    docker ps -a | grep $CONTAINERID &&
-        docker rm -f $CONTAINERID
     #ATEXT_LINE=$(curl -sL 127.0.0.1:8181/ | head -10 | tail -1)
     #echo "Sample asciitext line: $ATEXT_LINE"
 
@@ -233,9 +234,21 @@ function DOCKER_test_image {
 
     #set -x
     #CMD="curl -sL 127.0.0.1:8181/${TXT_PATH} | wc -c"
-    CMD="curl -sL 127.0.0.1:8181/${TXT_PATH}"
-    CURL_TXT_SIZE=$($CMD | wc -c)
-    [ -z "$CURL_TXT_SIZE" ] && die "curl command failed <$CMD>"
+    CURL_CMD="curl -sL 127.0.0.1:8181/${TXT_PATH}"
+    CURL_TXT_SIZE=$($CURL_CMD | wc -c)
+    [ "$CURL_TXT_SIZE" = "0" ] && {
+        echo $CURL_CMD 
+        $CURL_CMD
+        $CURL_CMD | wc -c
+        die "curl command failed <$CMD> - returned 0 bytes"
+    }
+    
+    [ -z "$CURL_TXT_SIZE" ] && {
+        echo $CURL_CMD 
+        $CURL_CMD
+        $CURL_CMD | wc -c
+        die "curl command failed <$CMD> = failed to count bytes"
+    }
     #set +x
 
     #CMD="wc -c < ${TXT_PATH}"
@@ -243,7 +256,12 @@ function DOCKER_test_image {
     FILE_TXT_SIZE=$($CMD | wc -c)
     [ -z "$FILE_TXT_SIZE" ] && die "wc command failed <$CMD>"
 
-    [ "$CURL_TXT_SIZE" != "$FILE_TXT_SIZE" ] && die "Different text image sizes [ $CURL_TXT_SIZE != $FILE_TXT_SIZE ] ($TXT_PATH)"
+    [ "$CURL_TXT_SIZE" != "$FILE_TXT_SIZE" ] && {
+        echo $CURL_CMD 
+        $CURL_CMD
+        $CURL_CMD | wc -c
+        die "Different text image sizes [ $CURL_TXT_SIZE != $FILE_TXT_SIZE ] ($TXT_PATH)"
+    }
 
     CMD="curl -sL 127.0.0.1:8181/${PNG_PATH}"
     CURL_PNG_SIZE=$($CMD | wc -c)
@@ -256,7 +274,10 @@ function DOCKER_test_image {
 
     [ "$CURL_PNG_SIZE" != "$FILE_PNG_SIZE" ] && die "Different PNG image sizes [ $CURL_PNG_SIZE != $FILE_PNG_SIZE ] ($PNG_PATH)"
 
-    docker stop $CONTAINERID
+    docker ps -a | grep $CONTAINERID &&
+        docker rm -f $CONTAINERID
+
+    #docker stop $CONTAINERID
     #docker rm $CONTAINERID
 }
 
@@ -377,6 +398,9 @@ function template_dockerfile {
     PICTURE_PATH_BASE=$1; shift
     BUILD_ENV_TARGET=$1; shift
 
+    [ -z "$EXPOSE_PORT" ] && die "EXPOSE_PORT is unset"
+    #[ -z "$EXPOSE_PORT" ] && EXPOSE_PORT=80
+
     #echo "EXPOSE_PORT=$EXPOSE_PORT"
     [ "$TEMPLATE_CMD" = "CMD" ] && die "template_dockerfile: Missing command in <$TEMPLATE_CMD>"
 
@@ -401,6 +425,10 @@ function template_dockerfile {
 
     [ $VERBOSE -ne 0 ] && grep ENV Dockerfile
 
+    #echo $DATE_VERSION
+    #grep DATE_VERSION Dockerfile
+    #die "X"
+
     [ ! -s Dockerfile ] && die "Empty Dockerfile"
     grep -v "^#" Dockerfile | grep __ && die "Uninstantiated variables in '${BUILD_SRC}'"
     mkdir -p tmp
@@ -410,16 +438,16 @@ function template_dockerfile {
     cp -a main.build.go tmp/main.build.go.${DFID}
 }
 
-function basic_2stage_build {
-    [ $VERBOSE -ne 0 ] && echo "FN: basic_2stage_build $*"
-    IMAGE_TAG=$1; shift
-    FROM_IMAGE=$1; shift
-    EXPOSE_PORT=$1; shift
-    TEMPLATE_CMD="$*"; set --
-
-    template_dockerfile $IMAGE_TAG $FROM_IMAGE $EXPOSE_PORT "$TEMPLATE_CMD"
-    $DOCKER_BUILD -t $IMAGE_TAG .
-}
+#function basic_2stage_build {
+#    [ $VERBOSE -ne 0 ] && echo "FN: basic_2stage_build $*"
+#    IMAGE_TAG=$1; shift
+#    FROM_IMAGE=$1; shift
+#    EXPOSE_PORT=$1; shift
+#    TEMPLATE_CMD="$*"; set --
+#
+#    template_dockerfile "$IMAGE_TAG" "$FROM_IMAGE" "$EXPOSE_PORT" "$TEMPLATE_CMD"
+#    $DOCKER_BUILD -t $IMAGE_TAG .
+#}
 
 function docker_push {
     [ $VERBOSE -ne 0 ] && echo "FN: docker_push $*"
@@ -516,7 +544,7 @@ function template_go_src {
     [ ! -s "$BUILD_SRC" ] && die "Empty source file '$BUILD_SRC'"
 }
 
-function TREAT_REPOS {
+function BUILD_ALL_REPOS_ALL_TAGS {
     
     #docker_test_image
     for REPO_NAME in $REPO_NAMES; do
@@ -635,6 +663,7 @@ if [ $BUILD -ne 0 ]; then
     template_go_src main.go main.build.go
     #check_build main.build.go
     [ $LOCAL -ne 0 ] && {
+        # LOCAL static binary build:
         GOLANG_IMAGE=golang:alpine
         ENVS="-e CGO_ENABLED=0"
 
@@ -644,12 +673,16 @@ if [ $BUILD -ne 0 ]; then
         set +x
         exit
     }
+
+    # PERFORM test image builds:
+    EXPOSE_PORT=80
     docker_build_static_base
     docker_build_dynamic_base
 
     TIME docker pull alpine:latest || true
 fi
 
+# Now build the various images/tags:
 TIMER_START; START0_S=$START_S
     LIVE=0
     READY=0
@@ -657,7 +690,7 @@ TIMER_START; START0_S=$START_S
     #LIVE=03
     #READY=03
 
-    TREAT_REPOS
+    BUILD_ALL_REPOS_ALL_TAGS
 START_S=$START0_S; TIMER_STOP; echo "SCRIPT Took $TOOK secs [${HRS}h${MINS}m${SECS}]"
 
 echo "Output logged to '$LOG'"
