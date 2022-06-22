@@ -571,6 +571,19 @@ function BUILD_ALL_REPOS_ALL_TAGS {
     done
 }
 
+RUN_LOCAL_TEST() {
+    PICTURE_TYPE="kubernetes"
+    COLOUR="blue"
+
+    export PICTURE_BASE="${PICTURE_TYPE}_${COLOUR}"
+    export PICTURE_PATH_BASE="static/img/${PICTURE_BASE}"
+    export PICTURE_COLOUR="${COLOUR}"
+    export IMAGE_NAME_VERSION="static-binary:$DATE_VERSION"
+    export IMAGE_VERSION="$DATE_VERSION"
+    ls -al ./demo-binary
+    ./demo-binary -l 8000
+}
+
 # END: TIMER FUNCTIONS ================================================
 
 IMAGE_NAME_VERSION=""
@@ -601,6 +614,7 @@ while [ ! -z "$1" ]; do
         --build|-b)       BUILD=1; TEST=1;;
         --push|-p)        PUSH=1;;
         --local|-l)       BUILD=1;LOCAL=1;PUSH=0;TEST=1;;
+        --run-local|-rl)  RUN_LOCAL_TEST; exit;;
         --test|-T)        BUILD=0;PUSH=0;TEST=1;;
         --push-only|-P)   TEST=0;BUILD=0;PUSH=1;;
 
@@ -668,9 +682,11 @@ if [ $BUILD -ne 0 ]; then
         ENVS="-e CGO_ENABLED=0"
 
         set -x
-          docker run -v $PWD:/mnt --rm $ENVS golang:alpine go build -a -o /mnt/demo-binary /mnt/main.build.go
+          docker run -v $PWD:/mnt --rm $ENVS golang:alpine go build -a -o /mnt/demo-binary /mnt/main.build.go ||
+              die "Build failed"
           ls -arhl demo-binary
         set +x
+        RUN_LOCAL_TEST
         exit
     }
 
