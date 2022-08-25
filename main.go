@@ -45,6 +45,18 @@ var (
     // -- defaults: to be overridden by env/cli/cm ------
     message            = ""
 
+    /*
+       NODE_NAME must be provided - the intention is to pick it up from the Kubernetes downwardAPI:
+       e.g.
+          # Get NODE_NAME via downwardAPI
+          env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+    */
+    NODE_NAME          = os.Getenv("NODE_NAME")
+
     IMAGE_NAME_VERSION = os.Getenv("IMAGE_NAME_VERSION")
     IMAGE_VERSION      = os.Getenv("IMAGE_VERSION")
     DATE_VERSION       = os.Getenv("DATE_VERSION")
@@ -279,8 +291,8 @@ func route_index(w http.ResponseWriter, r *http.Request) {
 
     respBody, byteContent, contentType := getResponseBody( url, userAgent, formattedRequest, from, fwd)
     if contentType != "" {
-        // w.Header().Set("Content-Type", "text/txt")
-       w.Header().Set( "Content-Type", contentType )
+         // w.Header().Set("Content-Type", "text/txt")
+         w.Header().Set( "Content-Type", contentType )
          w.Write([]byte( byteContent ))
     }
 
@@ -329,7 +341,7 @@ func getResponseBody(url string, userAgent string, formattedReq string, from str
         hostType = "host"
         htmlPageTitle = msg
     } else {
-        hostType = "container"
+        hostType = "pod"
         imageInfo = "[" + IMAGE_NAME_VERSION + "]"
         htmlPageTitle = msg + " " + imageInfo
     }
@@ -366,8 +378,13 @@ func getResponseBody(url string, userAgent string, formattedReq string, from str
         if fwd != "" { fwd=" [" + fwd + "]" }
 
         // MESSAGE
-        p1 := fmt.Sprintf("%s %s%s@%s%s " + "%simage%s%s " + "Request from %s%s" + "%s%s" + "%s",
-            hostType, colour_me_yellow, hostName, myIP, colour_me_normal,
+        NODE_INFO:=""
+        if (NODE_NAME != "" && hostType == "pod") {
+            NODE_INFO="[host " + NODE_NAME + "] "
+        }
+
+        p1 := fmt.Sprintf("%s%s %s%s@%s%s " + "%simage%s%s " + "Request from %s%s" + "%s%s" + "%s",
+            NODE_INFO, hostType, colour_me_yellow, hostName, myIP, colour_me_normal,
             colour_text, colour_me_normal, imageInfo,
             from, fwd,
             networkInfo, d,
@@ -608,7 +625,11 @@ func main() {
 
         //currentTime := time.Now()
         //log.Printf("%s [%s]: Now listening on port %s\n", currentTime.String(), hostname, listenAddr)
-        log.Printf("[%s]: Now listening on port %s\n", hostname, listenAddr)
+        if NODE_NAME == "" {
+            log.Printf("[%s]: Now listening on port %s\n", hostname, listenAddr)
+        } else {
+            log.Printf("[host:%s cont:%s]: Now listening on port %s\n", NODE_NAME, hostname, listenAddr)
+        }
         if err := http.ListenAndServe(listenAddr, mux); err != nil {
             log.Fatalf("error serving: %s", err)
         }
