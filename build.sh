@@ -6,8 +6,6 @@
 # ./build.sh --full  # -f: Build all repos/tags and test and push images ...
 # ./build.sh --build # -b: Build and test all repos/tags
 
-BUILD_LOG=~/tmp/build.log
-cp /dev/null $BUILD_LOG
 
 RESET_ANSI='\033[0m' 
 
@@ -29,10 +27,17 @@ VERBOSE=0
 DATE_VERSION=$(date +%Y-%b-%d_%02Hh%02Mm%02S)
 APP_BIN=/app/demo-binary
 
-LOG=$PWD/logs/${0}.${DATE_VERSION}.log
-PUSH_LOG=$PWD/logs/docker_push.${DATE_VERSION}.log
-LOG_LINK=$PWD/logs/${0}.log
-PUSH_LOG_LINK=$PWD/logs/docker_push.log
+LOG_DIR=$PWD/logs
+
+mkdir -p $LOG_DIR
+
+BUILD_LOG=$LOG_DIR/build.log
+cp /dev/null $BUILD_LOG
+
+LOG=$LOG_DIR/${0}.${DATE_VERSION}.log
+PUSH_LOG=$LOG_DIR/docker_push.${DATE_VERSION}.log
+LOG_LINK=$LOG_DIR/${0}.log
+PUSH_LOG_LINK=$LOG_DIR/docker_push.log
 
 [ -h $LOG_LINK ] && rm $LOG_LINK
 [ -h $PUSH_LOG_LINK ] && rm $PUSH_LOG_LINK
@@ -69,7 +74,13 @@ function die {
 }          
 
 function DOCKER_LOGIN {
-    docker login > ~/tmp/docker.login.op 2>&1 || {
+    [ "$LOCAL" = "1" ] && return
+
+    echo
+    echo "(use --local option to avoid 'docker login')"
+    #echo "docker login:"
+    #docker login > ~/tmp/docker.login.op 2>&1 || {
+    docker login || {
         cat ~/tmp/docker.login.op
         die "Failed to login to Docker Hub"
     }
@@ -96,6 +107,8 @@ function check_build {
 
     echo; echo "---- Testing  binary ----------"
     LISTEN=127.0.0.1:8080
+    echo
+    echo "./demo-binary -l $LISTEN &"
     ./demo-binary -l $LISTEN &
     [ $? -ne 0 ] && die "Failed to launch binary"
     PID=$!
@@ -590,12 +603,15 @@ RUN_LOCAL_TEST() {
     PICTURE_TYPE="kubernetes"
     COLOUR="blue"
 
+    echo
     export PICTURE_BASE="${PICTURE_TYPE}_${COLOUR}"
     export PICTURE_PATH_BASE="static/img/${PICTURE_BASE}"
     export PICTURE_COLOUR="${COLOUR}"
     export IMAGE_NAME_VERSION="static-binary:$DATE_VERSION"
     export IMAGE_VERSION="$DATE_VERSION"
+    env | grep -E "IMAGE_|PICTURE_"
     ls -al ./demo-binary
+    echo; echo "./demo-binary -l 8000"
     ./demo-binary -l 8000
 }
 

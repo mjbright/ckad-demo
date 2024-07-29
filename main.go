@@ -363,7 +363,7 @@ func getResponseBody(url string, userAgent string, formattedReq string, from str
         if url == "/map" || url == "/MAP" {
             byteContent, _ = ioutil.ReadFile( MAP_ASCII_ART )
         } else {
-            //fmt.Printf("DEBUG: logo_path='%s'\n", logo_path)
+            fmt.Printf("DEBUG: logo_path='%s'\n", logo_path)
             if multilineOP {
                 byteContent, _ = ioutil.ReadFile( logo_path )
             }
